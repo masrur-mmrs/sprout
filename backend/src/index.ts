@@ -2,13 +2,18 @@ import { env } from "./config/env.js";
 import { createApp } from "./app.js";
 import { pool } from "./db/pool.js";
 import { createResendSender } from "./services/email/resendSender.js";
+import { createGcsStorage } from "./services/storage/gcsStorage.js";
 
 const email = createResendSender({
   apiKey: env.RESEND_API_KEY,
   from: env.EMAIL_FROM,
   appUrl: env.APP_URL,
 });
-const app = createApp({ db: pool, email });
+const storage = createGcsStorage({
+  binaryBucket: env.GCS_BINARY_BUCKET,
+  iconBucket: env.GCS_ICON_BUCKET,
+});
+const app = createApp({ db: pool, email, storage });
 
 const server = app.listen(env.PORT, (error) => {
   if (error) {

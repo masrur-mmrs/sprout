@@ -8,6 +8,7 @@ import { env } from "../src/config/env.js";
 import { requestPasswordReset } from "../src/modules/auth/auth.service.js";
 import { rowCounts, useTestDb } from "./helpers/db.js";
 import { fakeEmailSender, type FakeEmailSender } from "./helpers/email.js";
+import { fakeStorage } from "./helpers/storage.js";
 
 const db = useTestDb();
 
@@ -39,7 +40,7 @@ function setup(email: FakeEmailSender = fakeEmailSender()): {
   app: Express;
   email: FakeEmailSender;
 } {
-  return { app: createApp({ db, email }), email };
+  return { app: createApp({ db, email, storage: fakeStorage() }), email };
 }
 
 async function signUpAlex(app: Express): Promise<void> {
