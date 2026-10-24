@@ -1,26 +1,120 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * Sprout's design tokens. Type, spacing, radii and motion were chosen with /apple-design (INV-5);
+ * the colors are fixed by the plan's §0 Brand identity. Light theme only.
+ */
+@theme {
+  /* §0 palette (INV-7). These five values appear here and nowhere else in the frontend. Use the
+     semantic names; same-hue Tailwind shades are for states and contrast, red-700 for errors. */
+  --color-brand: #22c55e;
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-surface: #f8fafc;
+  --color-accent: #06b6d4;
+
+  /* Type: the platform's system font, which ships optical sizing and legibility tuning. Tracking is
+     size-specific (slightly open on small text, 0 on body, tighter as headings grow) and leading
+     tightens as size grows. All rem, so the scale follows the user's text-size setting. */
+  --font-sans:
+    system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-xs--letter-spacing: 0.01em;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.25rem;
+  --text-sm--letter-spacing: 0.005em;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-base--letter-spacing: 0em;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-lg--letter-spacing: -0.005em;
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 1.75rem;
+  --text-xl--letter-spacing: -0.01em;
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2rem;
+  --text-2xl--letter-spacing: -0.015em;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.25rem;
+  --text-3xl--letter-spacing: -0.02em;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 2.5rem;
+  --text-4xl--letter-spacing: -0.022em;
+  --text-5xl: 3rem;
+  --text-5xl--line-height: 1.05;
+  --text-5xl--letter-spacing: -0.025em;
+
+  /* Spacing: a 4px grid in rem, so spacing scales with text. */
+  --spacing: 0.25rem;
+
+  /* Radii: controls (buttons, inputs) share one shape; larger surfaces get a larger radius. */
+  --radius-control: 0.625rem;
+  --radius-card: 1rem;
+
+  /* Elevation, tinted with ink. Higher surfaces read as thicker: a deeper, softer shadow. */
+  --shadow-card:
+    0 1px 2px color-mix(in oklab, var(--color-ink) 5%, transparent),
+    0 2px 8px color-mix(in oklab, var(--color-ink) 4%, transparent);
+  --shadow-overlay:
+    0 4px 12px color-mix(in oklab, var(--color-ink) 8%, transparent),
+    0 16px 40px color-mix(in oklab, var(--color-ink) 12%, transparent);
+
+  /* Motion. The default spring is critically damped (damping 1.0, response 0.35s): no overshoot,
+     since nothing here is thrown by a gesture. Sampled as linear(), it settles in --duration-spring.
+     Exits accelerate away along the path they came in on. Press feedback lands on pointer-down. */
+  --ease-spring: linear(
+    0,
+    0.075,
+    0.227,
+    0.39,
+    0.536,
+    0.656,
+    0.75,
+    0.821,
+    0.873,
+    0.911,
+    0.938,
+    0.957,
+    0.971,
+    0.98,
+    0.986,
+    0.991,
+    0.994,
+    0.996,
+    0.997,
+    0.998,
+    1
+  );
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --duration-press: 100ms;
+  --duration-fast: 150ms;
+  --duration-spring: 500ms;
+  --duration-exit: 200ms;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/*
+ * Reduced-motion policy: under prefers-reduced-motion, nothing moves or scales. Movement is applied
+ * only behind `motion-safe:`; toasts cross-fade over --duration-fast instead of sliding; skeletons
+ * hold still; buttons keep their color change but drop the press scale. Color and opacity changes
+ * that aid comprehension stay.
+ */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Translucent chrome turns solid when the user asks for less transparency. */
+@custom-variant transparency-reduce (@media (prefers-reduced-transparency: reduce));
+
+/* One visible focus ring for every control: green-700 is 4.8:1 on surface (non-text needs 3:1). */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-green-700);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  :root {
+    color-scheme: light;
+  }
 }
