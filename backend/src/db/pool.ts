@@ -1,6 +1,12 @@
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from "pg";
 import { env } from "../config/env.js";
 
+/**
+ * What query modules take as `db`: the injected pool (`createApp({ db })`), or the client inside
+ * `withTransaction`. They never import `pool` or `query()` directly, so tests control the database.
+ */
+export type Queryable = Pick<PoolClient, "query">;
+
 /** The process-wide Postgres pool. `src/index.ts` ends it on shutdown. */
 export const pool = new Pool({ connectionString: env.DATABASE_URL });
 

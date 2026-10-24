@@ -2,7 +2,7 @@ import { env } from "./config/env.js";
 import { createApp } from "./app.js";
 import { pool } from "./db/pool.js";
 
-const app = createApp();
+const app = createApp({ db: pool });
 
 const server = app.listen(env.PORT, (error) => {
   if (error) {
