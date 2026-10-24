@@ -11,6 +11,7 @@ import {
   createDeveloperAppsRouter,
 } from "./modules/apps/apps.routes.js";
 import { createAuthRouter } from "./modules/auth/auth.routes.js";
+import { createReviewsRouter } from "./modules/reviews/reviews.routes.js";
 import type { EmailSender } from "./services/email/emailSender.js";
 import type { StorageService } from "./services/storage/storage.js";
 
@@ -35,6 +36,8 @@ export function createApp({ db, email, storage }: AppDeps): Express {
   app.use("/api", originCheck);
   app.use("/api/auth", createAuthRouter({ db, email }));
   app.use("/api/apps", createAppsRouter({ db, storage }));
+  // No apps route matches `/:id/reviews`, so those requests fall through to this router.
+  app.use("/api/apps/:id/reviews", createReviewsRouter({ db }));
   app.use("/api/developer/apps", createDeveloperAppsRouter({ db }));
   app.use("/api/categories", createCategoriesRouter());
 
