@@ -27,10 +27,13 @@ export function query<T extends QueryResultRow = QueryResultRow>(
 /**
  * Runs `fn` between BEGIN and COMMIT on one checked-out client, and rolls back if it throws.
  * Statements inside `fn` must use the `client` it receives: `query()` would run outside the
- * transaction on a different connection.
+ * transaction on a different connection. Request handlers pass their injected `db` pool.
  */
-export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-  const client = await pool.connect();
+export async function withTransaction<T>(
+  fn: (client: PoolClient) => Promise<T>,
+  db: Pool = pool,
+): Promise<T> {
+  const client = await db.connect();
   let broken = false;
   try {
     await client.query("BEGIN");
