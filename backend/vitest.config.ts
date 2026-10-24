@@ -4,6 +4,10 @@ export default defineConfig({
   test: {
     include: ["test/**/*.test.ts"],
     environment: "node",
+    // Migrates sprout_test once, before any test file runs.
+    globalSetup: ["test/globalSetup.ts"],
+    // Test files share sprout_test and truncate it between tests, so they must not overlap.
+    fileParallelism: false,
     // A valid value for every variable src/config/env.ts requires, so importing it never exits.
     env: {
       NODE_ENV: "test",
