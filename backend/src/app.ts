@@ -5,7 +5,11 @@ import type { Pool } from "pg";
 import { env } from "./config/env.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { originCheck } from "./middleware/originCheck.js";
-import { createAppsRouter, createDeveloperAppsRouter } from "./modules/apps/apps.routes.js";
+import {
+  createAppsRouter,
+  createCategoriesRouter,
+  createDeveloperAppsRouter,
+} from "./modules/apps/apps.routes.js";
 import { createAuthRouter } from "./modules/auth/auth.routes.js";
 import type { EmailSender } from "./services/email/emailSender.js";
 import type { StorageService } from "./services/storage/storage.js";
@@ -32,6 +36,7 @@ export function createApp({ db, email, storage }: AppDeps): Express {
   app.use("/api/auth", createAuthRouter({ db, email }));
   app.use("/api/apps", createAppsRouter({ db, storage }));
   app.use("/api/developer/apps", createDeveloperAppsRouter({ db }));
+  app.use("/api/categories", createCategoriesRouter());
 
   app.use(notFound);
   app.use(errorHandler);

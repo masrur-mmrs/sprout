@@ -5,18 +5,23 @@ import { HttpError } from "../../lib/errors.js";
 import { validate } from "../../lib/validate.js";
 import { requireAuth, requireRole } from "../../middleware/auth.js";
 import type { StorageService } from "../../services/storage/storage.js";
-import { listDeveloperApps } from "./apps.queries.js";
+import { findAppDetail, listApps, listDeveloperApps, searchApps } from "./apps.queries.js";
 import {
   appIdParamsSchema,
   createAppSchema,
+  listAppsQuerySchema,
+  searchQuerySchema,
   updateAppSchema,
   uploadRequestSchema,
   type AppIdParams,
   type CreateAppInput,
+  type ListAppsQuery,
+  type SearchQuery,
   type UpdateAppInput,
   type UploadRequest,
 } from "./apps.schemas.js";
 import { deleteApp, issueUploadUrl, publishApp, startDownload, updateApp } from "./apps.service.js";
+import { CATEGORIES } from "./categories.js";
 
 /** Per client IP, per app. Enough for a real user's retries; an abuse guard on download_count. */
 export const DOWNLOADS_PER_MINUTE = 20;
@@ -70,9 +75,24 @@ const openedDirectly: RequestHandler = (req, _res, next) => {
 };
 
 /**
- * `/api/apps/*` writes and downloads (Phase 6 adds browse, search and detail). The contract,
- * mirrored by the frontend's `lib/api/types.ts`:
+ * `/api/apps/*`: browse, search, detail, writes and downloads. The contract, mirrored by the
+ * frontend's `lib/api/types.ts`:
  *
+ * - `GET /?category=&sort=&page=&pageSize=` (anyone) → 200 `{ items: AppSummary[], page, pageSize,
+ *   total }`. `sort` is `popular` (default: most downloaded), `new` (most recently published) or
+ *   `top-rated` (highest average, unrated apps last; ties go to more reviews). `category` is
+ *   optional and exactly one of `/api/categories`; leave it out for every category, since `""` is
+ *   a 400. URL-encode it (`URLSearchParams`): `Music & Audio` is `Music%20%26%20Audio`. `page` is
+ *   1–1000 (default 1), `pageSize` 1–48 (default 24). `total` counts every app the filter matches,
+ *   so a page past the end is `items: []` with the real `total`. Anything else, or any repeated
+ *   parameter, is 400 VALIDATION_ERROR.
+ * - `GET /search?q=` (anyone) → 200 `(AppSummary & { match_score: number })[]`, best match first,
+ *   at most 12, no pagination. `q` is trimmed and must then be 1–100 characters as `String.length`
+ *   counts them (UTF-16 units), without NUL. From 3 code points it is a typo-tolerant `pg_trgm`
+ *   match on the title, or on any word of the description, and needs a letter or digit to match
+ *   anything; under 3 it matches the start of the title, case-insensitively, with `%`, `_` and
+ *   `\` taken literally. `match_score` is 0–1, for ordering only. No matches is `[]`.
+ * - `GET /:id` (anyone) → 200 `AppDetail`. 404 NOT_FOUND for an unknown id.
  * - `POST /uploads` (developer) `{ kind: "binary" | "icon", filename, contentType, size }` → 200
  *   `{ uploadUrl, key, headers }`. PUT the file to `uploadUrl` within 15 minutes, sending exactly
  *   `headers`, then pass `key` as `binaryKey` or `iconKey`. Binaries end in .zip .dmg .apk .exe
@@ -96,8 +116,12 @@ const openedDirectly: RequestHandler = (req, _res, next) => {
  *
  * `PublicApp` is `{ id, developer_id, title, tagline, description, category, version,
  * icon_url: string | null, download_count, created_at, updated_at }`, timestamps as ISO 8601
- * strings. Another developer's app is 404 NOT_FOUND, never 403. A non-numeric or out-of-range
- * `:id` is 400. Failures use the error envelope; every response is `Cache-Control: no-store`.
+ * strings. `AppSummary` is `{ id, title, tagline, category, icon_url: string | null,
+ * download_count, avg_rating: number | null, review_count: number }`, `avg_rating` null with no
+ * reviews. `AppDetail` is a `PublicApp` plus `{ developer_username, avg_rating: number | null,
+ * review_count: number }`. Another developer's app is 404 NOT_FOUND to writes, never 403. A
+ * non-numeric or out-of-range `:id` is 400. Failures use the error envelope; every response is
+ * `Cache-Control: no-store`, so counts, ratings and a developer's edits show at once.
  */
 export function createAppsRouter({ db, storage }: { db: Pool; storage: StorageService }): Router {
   const router = Router();
@@ -121,6 +145,24 @@ export function createAppsRouter({ db, storage }: { db: Pool; storage: StorageSe
       // ipKeyGenerator groups an IPv6 client's /56, so it can't rotate addresses within it.
       return `${ipKeyGenerator(req.ip ?? "")}:${id}`;
     },
+  });
+
+  router.get("/", noStore, validate(listAppsQuerySchema, "query"), async (_req, res) => {
+    const query: ListAppsQuery = res.locals.query;
+    res.status(200).json(await listApps(db, query));
+  });
+
+  // Before "/:id", which would otherwise take "search" as an id and answer 400.
+  router.get("/search", noStore, validate(searchQuerySchema, "query"), async (_req, res) => {
+    const { q }: SearchQuery = res.locals.query;
+    res.status(200).json(await searchApps(db, q));
+  });
+
+  router.get("/:id", noStore, validate(appIdParamsSchema, "params"), async (_req, res) => {
+    const { id }: AppIdParams = res.locals.params;
+    const app = await findAppDetail(db, id);
+    if (!app) throw new HttpError(404, "NOT_FOUND", "App not found.");
+    res.status(200).json(app);
   });
 
   router.post(
@@ -193,6 +235,20 @@ export function createDeveloperAppsRouter({ db }: { db: Pool }): Router {
 
   router.get("/", noStore, requireAuth(db), requireRole("developer"), async (req, res) => {
     res.status(200).json(await listDeveloperApps(db, callerId(req)));
+  });
+
+  return router;
+}
+
+/**
+ * `GET /api/categories` (anyone) → 200 `string[]`: every category, in display order. The list
+ * only changes with a deploy, so it is `Cache-Control: public, max-age=3600`.
+ */
+export function createCategoriesRouter(): Router {
+  const router = Router();
+
+  router.get("/", (_req, res) => {
+    res.set("Cache-Control", "public, max-age=3600").status(200).json(CATEGORIES);
   });
 
   return router;
