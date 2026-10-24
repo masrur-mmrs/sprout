@@ -158,3 +158,28 @@ export const appIdParamsSchema = z.object({
   id: z.coerce.number().int().min(1).max(MAX_INT4),
 });
 export type AppIdParams = z.infer<typeof appIdParamsSchema>;
+
+// Browse and search limits. Phase 10's client mirrors these.
+export const APP_SORTS = ["popular", "new", "top-rated"] as const;
+export type AppSort = (typeof APP_SORTS)[number];
+/** Caps OFFSET at 47,952 rows, so a request can't make Postgres sort and skip without bound. */
+export const MAX_PAGE = 1000;
+export const MAX_PAGE_SIZE = 48;
+export const DEFAULT_PAGE_SIZE = 24;
+export const MAX_SEARCH_LENGTH = 100;
+
+// A repeated parameter (?sort=new&sort=popular) arrives as an array, which every field rejects.
+/** `GET /api/apps`. An empty `category` is a 400, not "all categories": leave it out instead. */
+export const listAppsQuerySchema = z.object({
+  category: z.enum(CATEGORIES).optional(),
+  sort: z.enum(APP_SORTS).default("popular"),
+  page: z.coerce.number().int().min(1).max(MAX_PAGE).default(1),
+  pageSize: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).default(DEFAULT_PAGE_SIZE),
+});
+export type ListAppsQuery = z.infer<typeof listAppsQuerySchema>;
+
+/** `GET /api/apps/search`. `q` comes out trimmed. */
+export const searchQuerySchema = z.object({
+  q: textSchema(MAX_SEARCH_LENGTH, NUL),
+});
+export type SearchQuery = z.infer<typeof searchQuerySchema>;
