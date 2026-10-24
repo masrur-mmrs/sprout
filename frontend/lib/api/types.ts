@@ -1,7 +1,7 @@
 /**
- * The backend's response contract (backend/src/**), read side only. Request bodies belong to the
- * phases that send them. Timestamps arrive as ISO 8601 strings. `file_url`, `password_hash` and
- * `token_hash` never leave the backend, so they have no place here.
+ * The backend's response contract (backend/src/**), plus the request bodies the frontend sends,
+ * each added by the phase that sends it. Timestamps arrive as ISO 8601 strings. `file_url`,
+ * `password_hash` and `token_hash` never leave the backend, so they have no place here.
  */
 
 /** The httpOnly session cookie (INV-6). JS never reads its value; the server only forwards it. */
@@ -36,6 +36,36 @@ export interface User {
   username: string;
   email: string;
   role: "developer" | "user";
+}
+
+/** `POST /api/auth/signup`. `role` defaults to "user". */
+export interface SignUpBody {
+  username: string;
+  email: string;
+  password: string;
+  role?: User["role"];
+}
+
+/** `POST /api/auth/signin`. */
+export interface SignInBody {
+  email: string;
+  password: string;
+}
+
+/** `POST /api/auth/forgot-password`. */
+export interface ForgotPasswordBody {
+  email: string;
+}
+
+/** `POST /api/auth/reset-password`. The token travels only in this body, never in another URL. */
+export interface ResetPasswordBody {
+  token: string;
+  password: string;
+}
+
+/** forgot-password's and reset-password's 200: text to show as-is. */
+export interface MessageResponse {
+  message: string;
 }
 
 /** The fixed category list, in display order (backend/src/modules/apps/categories.ts). */

@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { User } from "@/lib/api/types";
+import { SignOutButton } from "./SignOutButton";
 import { buttonStyles } from "./ui/Button";
 import { Input } from "./ui/Input";
 
@@ -52,7 +53,13 @@ export function Header({ user }: { user: User | null }) {
           </div>
         </form>
 
-        <nav aria-label="Account" className="ml-auto flex shrink-0 items-center gap-2">
+        {/* Narrow screens: the nav keeps the logo's row and the username gives up width, so
+            Dashboard and Sign out always fit. From sm up it takes its natural width, as the search
+            flexes instead. */}
+        <nav
+          aria-label="Account"
+          className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none"
+        >
           {user ? (
             <>
               {user.role === "developer" && (
@@ -60,9 +67,10 @@ export function Header({ user }: { user: User | null }) {
                   Dashboard
                 </Link>
               )}
-              <span className="max-w-40 truncate text-sm font-medium text-ink">
+              <span className="max-w-40 min-w-0 truncate text-sm font-medium text-ink">
                 {user.username}
               </span>
+              <SignOutButton />
             </>
           ) : (
             <>
