@@ -3,6 +3,7 @@ import request, { type Response } from "supertest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../src/app.js";
 import { rowCounts, useTestDb } from "./helpers/db.js";
+import { fakeEmailSender } from "./helpers/email.js";
 
 const db = useTestDb();
 
@@ -14,7 +15,7 @@ const NOVA = { username: "nova", email: "nova@sprout.test", password: PASSWORD, 
 
 /** A fresh app (and so fresh rate limits) whose agent keeps cookies between requests. */
 function newAgent(): Agent {
-  return request.agent(createApp({ db }));
+  return request.agent(createApp({ db, email: fakeEmailSender() }));
 }
 
 /** Every auth response in this file goes through here: no hash may ever leave the backend (INV-4). */

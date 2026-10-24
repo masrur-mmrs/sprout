@@ -6,14 +6,15 @@ import { env } from "./config/env.js";
 import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { originCheck } from "./middleware/originCheck.js";
 import { createAuthRouter } from "./modules/auth/auth.routes.js";
+import type { EmailSender } from "./services/email/emailSender.js";
 
 /**
- * Services injected into the app. Later phases add `email` (EmailSender) and `storage`
- * (StorageService); tests always pass fakes or the test database's pool.
+ * Services injected into the app. Phase 5 adds `storage` (StorageService); tests always pass
+ * fakes or the test database's pool.
  */
-export type AppDeps = { db: Pool };
+export type AppDeps = { db: Pool; email: EmailSender };
 
-export function createApp({ db }: AppDeps): Express {
+export function createApp({ db, email }: AppDeps): Express {
   const app = express();
 
   // Before anything reads req.ip: the rate limiters key on it. Too few hops makes every client
@@ -29,7 +30,7 @@ export function createApp({ db }: AppDeps): Express {
   });
 
   app.use("/api", originCheck);
-  app.use("/api/auth", createAuthRouter(db));
+  app.use("/api/auth", createAuthRouter({ db, email }));
 
   app.use(notFound);
   app.use(errorHandler);

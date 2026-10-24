@@ -8,6 +8,7 @@ import { env } from "../src/config/env.js";
 import { optionalAuth, requireAuth, requireRole } from "../src/middleware/auth.js";
 import { errorHandler } from "../src/middleware/errorHandler.js";
 import { useTestDb } from "./helpers/db.js";
+import { fakeEmailSender } from "./helpers/email.js";
 
 const db = useTestDb();
 
@@ -16,7 +17,7 @@ const secret = new TextEncoder().encode(env.JWT_SECRET);
 
 /** Signs up through the real app and returns the `name=value` part of its session cookie. */
 async function signUpCookie(role: "developer" | "user"): Promise<string> {
-  const res = await request(createApp({ db }))
+  const res = await request(createApp({ db, email: fakeEmailSender() }))
     .post("/api/auth/signup")
     .send({ username: role, email: `${role}@sprout.test`, password: PASSWORD, role });
   const cookie = res.get("Set-Cookie")?.find((value) => value.startsWith("sprout_session="));
@@ -70,7 +71,9 @@ describe("requireRole('developer')", () => {
 
 describe("requireAuth token checks", () => {
   const meWith = (token: string) =>
-    request(createApp({ db })).get("/api/auth/me").set("Cookie", `sprout_session=${token}`);
+    request(createApp({ db, email: fakeEmailSender() }))
+      .get("/api/auth/me")
+      .set("Cookie", `sprout_session=${token}`);
 
   async function sign(claims: { sub: string; alg?: string; exp?: number | string | null }) {
     const jwt = new SignJWT({ role: "user" })
@@ -127,7 +130,7 @@ describe("optionalAuth", () => {
 
 describe("originCheck", () => {
   it("rejects a state-changing request from a foreign Origin with 403", async () => {
-    const res = await request(createApp({ db }))
+    const res = await request(createApp({ db, email: fakeEmailSender() }))
       .post("/api/auth/signout")
       .set("Origin", "https://evil.example");
 
@@ -139,7 +142,7 @@ describe("originCheck", () => {
   });
 
   it("allows the frontend's own Origin and requests without one", async () => {
-    const app = createApp({ db });
+    const app = createApp({ db, email: fakeEmailSender() });
 
     expect((await request(app).post("/api/auth/signout").set("Origin", env.APP_URL)).status).toBe(
       204,
@@ -148,7 +151,7 @@ describe("originCheck", () => {
   });
 
   it("leaves GET requests alone", async () => {
-    const res = await request(createApp({ db }))
+    const res = await request(createApp({ db, email: fakeEmailSender() }))
       .get("/api/auth/me")
       .set("Origin", "https://evil.example");
 
@@ -158,14 +161,14 @@ describe("originCheck", () => {
 
 describe("error envelope", () => {
   it("returns 404 NOT_FOUND as JSON for an unmatched route", async () => {
-    const res = await request(createApp({ db })).get("/api/nope");
+    const res = await request(createApp({ db, email: fakeEmailSender() })).get("/api/nope");
 
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: { code: "NOT_FOUND", message: "Not found." } });
   });
 
   it("returns 400 VALIDATION_ERROR for malformed JSON without echoing it", async () => {
-    const res = await request(createApp({ db }))
+    const res = await request(createApp({ db, email: fakeEmailSender() }))
       .post("/api/auth/signin")
       .set("Content-Type", "application/json")
       .send('{"email": "leak-me@sprout.test", ');
@@ -178,7 +181,7 @@ describe("error envelope", () => {
   });
 
   it("returns 413 VALIDATION_ERROR for a body over 100kb", async () => {
-    const res = await request(createApp({ db }))
+    const res = await request(createApp({ db, email: fakeEmailSender() }))
       .post("/api/auth/signin")
       .send({ email: "a@sprout.test", password: "x".repeat(110_000) });
 
@@ -187,7 +190,7 @@ describe("error envelope", () => {
   });
 
   it("returns 400 VALIDATION_ERROR when the body is missing", async () => {
-    const res = await request(createApp({ db })).post("/api/auth/signin");
+    const res = await request(createApp({ db, email: fakeEmailSender() })).post("/api/auth/signin");
 
     expect(res.status).toBe(400);
     expect(res.body).toEqual({

@@ -17,7 +17,7 @@
     "format:check": "prettier --check .",
     "db:migrate": "tsx --env-file-if-exists=.env src/db/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=.env src/db/seed.ts",
-    "email:dev": "react-email dev --dir src/emails"
+    "email:dev": "email dev --dir src/emails"
   },
   "dependencies": {
     "@google-cloud/storage": "^8.4.0",

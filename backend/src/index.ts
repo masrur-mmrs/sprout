@@ -1,8 +1,14 @@
 import { env } from "./config/env.js";
 import { createApp } from "./app.js";
 import { pool } from "./db/pool.js";
+import { createResendSender } from "./services/email/resendSender.js";
 
-const app = createApp({ db: pool });
+const email = createResendSender({
+  apiKey: env.RESEND_API_KEY,
+  from: env.EMAIL_FROM,
+  appUrl: env.APP_URL,
+});
+const app = createApp({ db: pool, email });
 
 const server = app.listen(env.PORT, (error) => {
   if (error) {

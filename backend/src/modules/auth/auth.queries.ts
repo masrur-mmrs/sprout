@@ -45,3 +45,67 @@ export async function findUserById(db: Queryable, id: number): Promise<PublicUse
   );
   return rows[0] ?? null;
 }
+
+export async function updatePasswordHash(
+  db: Queryable,
+  userId: number,
+  passwordHash: string,
+): Promise<void> {
+  await db.query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, userId]);
+}
+
+// Password resets. Rows are looked up by sha256(token) only (G3): the raw token is never a parameter.
+
+/**
+ * Locks the user's row until the transaction ends. Issuing a token takes it first, so concurrent
+ * requests for one user run one after another; otherwise each one's DELETE misses the other's
+ * uncommitted INSERT, and two live tokens remain.
+ */
+export async function lockUserForReset(db: Queryable, userId: number): Promise<void> {
+  await db.query("SELECT id FROM users WHERE id = $1 FOR UPDATE", [userId]);
+}
+
+/** Removes all of the user's reset rows: a new link or a completed reset revokes every older one. */
+export async function deletePasswordResets(db: Queryable, userId: number): Promise<void> {
+  await db.query("DELETE FROM password_resets WHERE user_id = $1", [userId]);
+}
+
+/** Blueprint §5 Forgot Password Token Insertion with the G3 column: `$2` is sha256(token). */
+export async function insertPasswordReset(
+  db: Queryable,
+  userId: number,
+  tokenHash: string,
+): Promise<void> {
+  await db.query(
+    `INSERT INTO password_resets (user_id, token_hash, expires_at)
+     VALUES ($1, $2, NOW() + INTERVAL '15 minutes')`,
+    [userId, tokenHash],
+  );
+}
+
+/** Whether an unexpired reset row has this hash. Read-only: the token is not consumed. */
+export async function hasValidPasswordReset(db: Queryable, tokenHash: string): Promise<boolean> {
+  const { rows } = await db.query(
+    "SELECT user_id FROM password_resets WHERE token_hash = $1 AND expires_at > NOW()",
+    [tokenHash],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Deletes the unexpired reset row with this hash and returns its user id, or null if none exists.
+ * When two resets race on one token, the row lock picks a single winner: the second DELETE waits
+ * for the first transaction to commit, then finds no row.
+ */
+export async function consumePasswordReset(
+  db: Queryable,
+  tokenHash: string,
+): Promise<number | null> {
+  const { rows } = await db.query<{ user_id: number }>(
+    `DELETE FROM password_resets
+     WHERE token_hash = $1 AND expires_at > NOW()
+     RETURNING user_id`,
+    [tokenHash],
+  );
+  return rows[0]?.user_id ?? null;
+}
