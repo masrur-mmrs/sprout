@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { User } from "@/lib/api/types";
+import { HeaderSearch } from "./HeaderSearch";
 import { SignOutButton } from "./SignOutButton";
 import { buttonStyles } from "./ui/Button";
-import { Input } from "./ui/Input";
 
 /**
  * The app shell's header, rendered on the server with the user the root layout fetched. A
@@ -22,36 +22,8 @@ export function Header({ user }: { user: User | null }) {
           </span>
         </Link>
 
-        {/* A plain GET form: works without JS. Phase 10 adds /search and live suggestions. */}
-        <form
-          action="/search"
-          role="search"
-          className="order-last w-full sm:order-none sm:max-w-md sm:flex-1"
-        >
-          <label htmlFor="site-search" className="sr-only">
-            Search apps
-          </label>
-          <div className="relative">
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 fill-none stroke-muted stroke-2"
-              strokeLinecap="round"
-            >
-              <circle cx="11" cy="11" r="6.5" />
-              <path d="M16 16l4 4" />
-            </svg>
-            <Input
-              id="site-search"
-              type="search"
-              name="q"
-              maxLength={100}
-              placeholder="Search apps"
-              autoComplete="off"
-              className="pl-9"
-            />
-          </div>
-        </form>
+        {/* A GET form to /search that works without JS; with JS, results follow the typing. */}
+        <HeaderSearch />
 
         {/* Narrow screens: the nav keeps the logo's row and the username gives up width, so
             Dashboard and Sign out always fit. From sm up it takes its natural width, as the search

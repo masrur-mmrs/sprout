@@ -1,2 +1,5 @@
 package-lock.json
 AGENTS.md
+test-results
+playwright-report
+blob-report
