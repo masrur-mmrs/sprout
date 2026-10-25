@@ -38,6 +38,18 @@ export async function signUp(page: Page, user: TestUser, path = "/sign-up") {
   await page.getByRole("button", { name: "Create account" }).click();
 }
 
+/** Signs up a new developer ("I want to publish apps"). Sign-up signs them in: no sign-in needed. */
+export async function signUpDeveloper(page: Page, user: TestUser = uniqueUser()) {
+  await open(page, "/sign-up");
+  await page.getByLabel("Username").fill(user.username);
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password", { exact: true }).fill(user.password);
+  await page.getByLabel("I want to publish apps").check();
+  await page.getByRole("button", { name: "Create account" }).click();
+  await expect(accountNav(page).getByRole("link", { name: "Dashboard" })).toBeVisible();
+  return user;
+}
+
 export async function signIn(page: Page, email: string, password: string, path = "/sign-in") {
   await open(page, path);
   await page.getByLabel("Email").fill(email);
