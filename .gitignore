@@ -19,3 +19,5 @@ coverage/
 !.env.example
 
 .DS_Store
+
+.taste-skill
