@@ -5,6 +5,7 @@ import { cache, type ReactNode } from "react";
 import { AppIcon } from "@/components/AppCard";
 import { ListNotice, Pagination, PastTheEnd } from "@/components/Pagination";
 import { CategoryIcon, Confetti, Mascot } from "@/components/store/art";
+import { DownloadLink } from "@/components/store/DownloadLink";
 import { GetLink, INK_BUTTON, PRESS, Rating, WASHES } from "@/components/store/parts";
 import { publishHrefFor, StoreShell } from "@/components/store/StoreShell";
 import { StarRating } from "@/components/ui/StarRating";
@@ -115,11 +116,11 @@ export default async function AppPage({ params, searchParams }: PageProps<"/apps
                 A plain link the person clicks: never next/link (it would prefetch), no `download`
                 attribute (the signed URL's Content-Disposition names the file), no fetch. Every
                 GET counts a download (INV-3), so nothing but that click may request it; the count
-                shows the new total on the next load.
+                shows the new total on the next load. DownloadLink only dims it meanwhile.
               */}
-              <a href={`/api/apps/${app.id}/download`} rel="nofollow" className={INK_BUTTON}>
+              <DownloadLink appId={app.id} className={INK_BUTTON}>
                 Download
-              </a>
+              </DownloadLink>
               <Link
                 href="#reviews"
                 className={cx(

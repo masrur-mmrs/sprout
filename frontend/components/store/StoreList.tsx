@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AppIcon } from "@/components/AppCard";
 import { ListNotice, Pagination, PastTheEnd } from "@/components/Pagination";
+import { PendingHint } from "@/components/ui/PendingHint";
 import type { AppPage, AppSort, AppSummary } from "@/lib/api/types";
 import { browseHref } from "@/lib/browse";
 import { cx } from "@/lib/cx";
@@ -159,7 +160,7 @@ function SortControl({ path, sort }: { path: string; sort: AppSort }) {
               scroll={false}
               aria-current={option.sort === sort ? "page" : undefined}
               className={cx(
-                "focus-ring flex h-8 items-center rounded-full px-4 text-sm font-semibold whitespace-nowrap",
+                "focus-ring relative flex h-8 items-center rounded-full px-4 text-sm font-semibold whitespace-nowrap",
                 "transition-[color,background-color,scale] duration-(--duration-press) ease-out motion-safe:active:scale-97",
                 option.sort === sort
                   ? "bg-brand text-ink shadow-card"
@@ -167,6 +168,8 @@ function SortControl({ path, sort }: { path: string; sort: AppSort }) {
               )}
             >
               {option.label}
+              {/* In the right padding, so the pill never widens. */}
+              <PendingHint className="absolute top-1/2 right-1.5 -translate-y-1/2" />
             </Link>
           </li>
         ))}

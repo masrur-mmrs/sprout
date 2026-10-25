@@ -1,5 +1,6 @@
 import type { AppSummary } from "@/lib/api/types";
 import { cx } from "@/lib/cx";
+import { DownloadLink } from "./DownloadLink";
 
 /** Every store control presses in on pointer-down, where motion is welcome. */
 export const PRESS =
@@ -24,15 +25,12 @@ export const WASHES = [
   "from-green-200 via-cyan-100 to-cyan-300",
 ];
 
-/**
- * Downloads the app. A plain link, never next/link: a prefetch would count a download (INV-3), so
- * nothing but the click may request it.
- */
+/** The "Get" pill: downloads the app (see DownloadLink for why it stays a plain link). */
 export function GetLink({ app, className }: { app: AppSummary; className?: string }) {
   return (
-    <a href={`/api/apps/${app.id}/download`} rel="nofollow" className={cx(GET_BUTTON, className)}>
+    <DownloadLink appId={app.id} className={cx(GET_BUTTON, className)}>
       Get<span className="sr-only"> {app.title}</span>
-    </a>
+    </DownloadLink>
   );
 }
 

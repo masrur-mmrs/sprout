@@ -5,6 +5,7 @@ import { categoryHref } from "@/lib/categories";
 import { cx } from "@/lib/cx";
 import { formatCompact } from "@/lib/format";
 import { CategoryIcon, Confetti, Laptop, Mascot, Shapes } from "@/components/store/art";
+import { DownloadLink } from "@/components/store/DownloadLink";
 import { GetLink, INK_BUTTON, PRESS, Rating, WASHES } from "@/components/store/parts";
 import { Carousel } from "./Carousel";
 import type { CategoryShelf, Featured } from "./data";
@@ -73,9 +74,9 @@ function Slide({ item, index }: { item: Featured; index: number }) {
           <span>Free</span>
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <a href={`/api/apps/${app.id}/download`} rel="nofollow" className={INK_BUTTON}>
+          <DownloadLink appId={app.id} className={INK_BUTTON}>
             Get it free<span className="sr-only">: {app.title}</span>
-          </a>
+          </DownloadLink>
           <Link
             href={`/apps/${app.id}`}
             className={cx(
