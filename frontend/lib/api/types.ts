@@ -132,6 +132,20 @@ export interface AppPage {
   total: number;
 }
 
+/** `GET /api/apps?sort=`: most downloaded (the default), newest, or highest rated. */
+export const APP_SORTS = ["popular", "new", "top-rated"] as const;
+
+export type AppSort = (typeof APP_SORTS)[number];
+
+// Limits mirrored from backend/src/modules/{apps/apps,reviews/reviews}.schemas.ts. Lengths count
+// UTF-16 units (`String.length`), as the backend and an HTML `maxlength` do.
+/** The highest `page` the browse and review lists accept. */
+export const MAX_PAGE = 1000;
+/** A search `q`, after trimming. */
+export const MAX_SEARCH_LENGTH = 100;
+/** A review comment, after trimming. */
+export const MAX_COMMENT_LENGTH = 2000;
+
 export interface Review {
   id: number;
   username: string;
@@ -147,4 +161,13 @@ export interface ReviewPage {
   total: number;
   /** The viewer's own review (also somewhere in the full list), or null. */
   mine: Review | null;
+}
+
+/**
+ * `PUT /api/apps/:id/reviews`: the whole review, creating or replacing it. `rating` is an integer
+ * from 1 to 5 (a number, never a string); leaving `comment` out, or sending null, clears it.
+ */
+export interface PutReviewBody {
+  rating: number;
+  comment?: string | null;
 }

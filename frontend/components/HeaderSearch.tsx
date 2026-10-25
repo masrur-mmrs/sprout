@@ -1,0 +1,168 @@
+"use client";
+
+import Form from "next/form";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FormEvent,
+} from "react";
+import { MAX_SEARCH_LENGTH } from "@/lib/api/types";
+import { Input } from "./ui/Input";
+
+/** After the last keystroke: long enough to skip the letters of a word, short enough to feel live. */
+const DEBOUNCE_MS = 250;
+
+const FORM_CLASS = "order-last w-full sm:order-none sm:max-w-md sm:flex-1";
+
+function searchHref(q: string): string {
+  return `/search?${new URLSearchParams({ q })}`;
+}
+
+function SearchField(props: ComponentProps<"input">) {
+  return (
+    <>
+      <label htmlFor="site-search" className="sr-only">
+        Search apps
+      </label>
+      <div className="relative">
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 fill-none stroke-muted stroke-2"
+          strokeLinecap="round"
+        >
+          <circle cx="11" cy="11" r="6.5" />
+          <path d="M16 16l4 4" />
+        </svg>
+        <Input
+          id="site-search"
+          type="search"
+          name="q"
+          maxLength={MAX_SEARCH_LENGTH}
+          placeholder="Search apps"
+          autoComplete="off"
+          className="pl-9"
+          {...props}
+        />
+      </div>
+    </>
+  );
+}
+
+/**
+ * The header's search: a GET form to /search, so it works without JS. With JS, results follow the
+ * typing: from any other page the first pause pushes /search (so Back returns there), and on
+ * /search each pause replaces the entry, so one search is one history entry. It lives in the root
+ * layout, so it's never remounted and keeps focus while results update.
+ */
+export function HeaderSearch() {
+  return (
+    // useSearchParams needs a boundary in case a page is ever prerendered; the plain form stands in.
+    <Suspense
+      fallback={
+        <form action="/search" role="search" className={FORM_CLASS}>
+          <SearchField />
+        </form>
+      }
+    >
+      <LiveSearch />
+    </Suspense>
+  );
+}
+
+function LiveSearch() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const onSearch = pathname === "/search";
+  // A repeated q counts as none, as on the page.
+  const all = searchParams.getAll("q");
+  const urlQuery = all.length === 1 ? all[0] : "";
+
+  // On /search the input starts as q; elsewhere it's left as typed.
+  const [value, setValue] = useState(onSearch ? urlQuery : "");
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // The route as of the last render, for the timer, which outlives the render that set it.
+  const route = useRef({ onSearch, query: urlQuery.trim() });
+  // A push to /search is loading. Until it lands, the newest value waits here: a replace now could
+  // overwrite the page being left, and a second push would add a history entry.
+  const pushing = useRef(false);
+  const queued = useRef<string | null>(null);
+
+  const navigate = useCallback(
+    (raw: string) => {
+      clearTimeout(timer.current);
+      if (pushing.current) {
+        queued.current = raw;
+        return;
+      }
+      const q = raw.trim();
+      const { onSearch, query } = route.current;
+      if (!onSearch) {
+        // Clearing the input anywhere else does nothing.
+        if (!q) return;
+        pushing.current = true;
+        router.push(searchHref(q));
+      } else if (q !== query) {
+        router.replace(q ? searchHref(q) : "/search");
+      }
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    route.current = { onSearch, query: urlQuery.trim() };
+  }, [onSearch, urlQuery]);
+
+  // The push landed: catch up with what was typed meanwhile. If the user went elsewhere first,
+  // that navigation wins and the queued value is dropped.
+  useEffect(() => {
+    if (!pushing.current) return;
+    pushing.current = false;
+    const next = queued.current;
+    queued.current = null;
+    if (next !== null && pathname === "/search") navigate(next);
+  }, [pathname, navigate]);
+
+  // Back and Forward: on /search the input shows the q being returned to, and nothing typed before
+  // fires afterwards. Only history moves do this, so a landing search never overwrites newer typing.
+  useEffect(() => {
+    function onPopState() {
+      clearTimeout(timer.current);
+      pushing.current = false;
+      queued.current = null;
+      const url = new URL(window.location.href);
+      if (url.pathname !== "/search") return;
+      const qs = url.searchParams.getAll("q");
+      setValue(qs.length === 1 ? qs[0] : "");
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      clearTimeout(timer.current);
+    };
+  }, []);
+
+  function onChange(next: string) {
+    setValue(next);
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => navigate(next), DEBOUNCE_MS);
+  }
+
+  // Enter: at once, by the same rules. next/form prefetches /search; JS takes the submit over.
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    navigate(value);
+  }
+
+  return (
+    <Form action="/search" role="search" onSubmit={onSubmit} className={FORM_CLASS}>
+      <SearchField value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+    </Form>
+  );
+}
