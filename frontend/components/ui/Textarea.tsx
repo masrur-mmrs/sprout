@@ -53,7 +53,14 @@ export function TextareaField({ label, errors, hint, id, ...props }: TextareaFie
       )}
       {invalid && (
         // red-700 is 6.2:1 on surface, the one error red.
-        <p id={errorId} className="text-sm text-red-700">
+        <p
+          id={errorId}
+          className={cx(
+            "text-sm text-red-700",
+            "transition-[opacity,translate] duration-(--duration-fast) ease-out",
+            "starting:opacity-0 motion-safe:starting:-translate-y-1",
+          )}
+        >
           {errors.join(" ")}
         </p>
       )}

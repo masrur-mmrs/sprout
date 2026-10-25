@@ -1,4 +1,5 @@
 import { useId, type ComponentProps } from "react";
+import { cx } from "@/lib/cx";
 import { Input } from "./Input";
 
 export interface FieldProps extends ComponentProps<"input"> {
@@ -8,7 +9,10 @@ export interface FieldProps extends ComponentProps<"input"> {
   hint?: string;
 }
 
-/** A labelled input with its validation messages, wired up with aria-invalid and aria-describedby. */
+/**
+ * A labelled input with its validation messages, wired up with aria-invalid and aria-describedby.
+ * A message fades in and settles from just above; reduced motion keeps the fade, drops the move.
+ */
 export function Field({ label, errors, hint, id, ...props }: FieldProps) {
   const autoId = useId();
   const inputId = id ?? autoId;
@@ -35,7 +39,14 @@ export function Field({ label, errors, hint, id, ...props }: FieldProps) {
       )}
       {invalid && (
         // red-700 is 6.2:1 on surface, the one error red.
-        <p id={errorId} className="text-sm text-red-700">
+        <p
+          id={errorId}
+          className={cx(
+            "text-sm text-red-700",
+            "transition-[opacity,translate] duration-(--duration-fast) ease-out",
+            "starting:opacity-0 motion-safe:starting:-translate-y-1",
+          )}
+        >
           {errors.join(" ")}
         </p>
       )}

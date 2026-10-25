@@ -56,7 +56,8 @@ export interface FileFieldProps {
  * A native file input (no drag-and-drop), the chosen file's name and size, and once it uploads,
  * its progress, then Uploaded, or Failed with Retry. Controlled by the form, which owns the
  * uploads. The input keeps the platform's own picker and keyboard behavior; `file:` styles its
- * button like a secondary Button.
+ * button like a secondary Button, press included. The file's card, its status and an error fade in
+ * and settle as they appear, the way Field's messages do.
  */
 export function FileField({
   name,
@@ -114,7 +115,9 @@ export function FileField({
           className={cx(
             "focus-ring block w-full min-w-0 rounded-control text-sm text-muted",
             "file:mr-3 file:h-9 file:cursor-pointer file:rounded-control file:border file:border-slate-300 file:bg-surface file:px-3.5 file:text-sm file:font-semibold file:text-ink",
-            "file:transition-colors file:duration-(--duration-fast) hover:file:bg-slate-100 aria-invalid:file:border-red-700",
+            "hover:file:bg-slate-100 aria-invalid:file:border-red-700",
+            "file:transition-[color,background-color,border-color,scale] file:duration-(--duration-press) file:ease-out",
+            "motion-safe:not-disabled:active:file:scale-97",
             "disabled:cursor-not-allowed disabled:opacity-50 disabled:file:cursor-not-allowed",
           )}
         />
@@ -124,13 +127,25 @@ export function FileField({
       </p>
 
       {file && (
-        <div className="mt-1 rounded-control border border-slate-200 px-3.5 py-3">
+        <div
+          className={cx(
+            "mt-1 rounded-control border border-slate-200 px-3.5 py-3",
+            "transition-[opacity,translate] duration-(--duration-fast) ease-out",
+            "starting:opacity-0 motion-safe:starting:-translate-y-1",
+          )}
+        >
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
             <span className="min-w-0 text-sm font-medium text-ink wrap-anywhere">{file.name}</span>
             <span className="text-sm text-muted tabular-nums">{formatBytes(file.size)}</span>
           </div>
           {shown && (
-            <div className="mt-2 flex items-center gap-3">
+            <div
+              className={cx(
+                "mt-2 flex items-center gap-3",
+                "transition-[opacity,translate] duration-(--duration-fast) ease-out",
+                "starting:opacity-0 motion-safe:starting:-translate-y-1",
+              )}
+            >
               <span className={cx("w-18 shrink-0 text-sm font-medium", shown.className)}>
                 {shown.text}
               </span>
@@ -155,7 +170,14 @@ export function FileField({
       </span>
 
       {invalid && (
-        <p id={errorId} className="text-sm text-red-700">
+        <p
+          id={errorId}
+          className={cx(
+            "text-sm text-red-700",
+            "transition-[opacity,translate] duration-(--duration-fast) ease-out",
+            "starting:opacity-0 motion-safe:starting:-translate-y-1",
+          )}
+        >
           {errors.join(" ")}
         </p>
       )}

@@ -51,7 +51,9 @@ export function BrowseList({ title, headingLevel: Heading, path, sort, data }: B
                   aria-current={option.sort === sort ? "page" : undefined}
                   className={cx(
                     "focus-ring flex h-8 items-center rounded-[calc(var(--radius-control)-0.25rem)] px-3 text-sm font-medium whitespace-nowrap",
-                    "transition-colors duration-(--duration-fast)",
+                    // Presses like a Button. Hover changes the text color, so it transitions too.
+                    "transition-[color,background-color,scale] duration-(--duration-press) ease-out",
+                    "motion-safe:active:scale-97",
                     option.sort === sort
                       ? "bg-surface text-ink shadow-card"
                       : "text-slate-600 hover:text-ink",

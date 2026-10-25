@@ -7,11 +7,13 @@ import { FormAlert, toFormErrors } from "@/components/form";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError, apiFetch } from "@/lib/api/client";
+import { cx } from "@/lib/cx";
 
 /**
  * Deletes an app through an inline two-step confirm: no modal, no `window.confirm`. Focus goes to
  * Keep it, the safe choice, and back to Delete app if the app is kept. Button has no danger
- * variant, so the red is on the label: red-700 is 6.2:1 on surface.
+ * variant, so the red is on the label: red-700 is 6.2:1 on surface. The confirm fades in from
+ * where the trigger was, but focus moves at once: the animation never waits on it.
  */
 export function DeleteApp({ appId, title }: { appId: number; title: string }) {
   const router = useRouter();
@@ -70,7 +72,11 @@ export function DeleteApp({ appId, title }: { appId: number; title: string }) {
           <div
             role="group"
             aria-labelledby={`${id}-confirm`}
-            className="flex flex-col items-start gap-3 sm:flex-row sm:items-center"
+            className={cx(
+              "flex flex-col items-start gap-3 sm:flex-row sm:items-center",
+              "transition-[opacity,translate] duration-(--duration-fast) ease-out",
+              "starting:opacity-0 motion-safe:starting:-translate-x-1",
+            )}
           >
             <span id={`${id}-confirm`} className="text-ink wrap-anywhere">
               Delete {title}? Its reviews and files go too.

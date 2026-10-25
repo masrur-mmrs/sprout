@@ -12,6 +12,7 @@ import { TextLink } from "@/components/ui/TextLink";
 import { useToast } from "@/components/ui/Toast";
 import { ApiError, apiFetch } from "@/lib/api/client";
 import { MAX_COMMENT_LENGTH, type PutReviewBody, type Review } from "@/lib/api/types";
+import { cx } from "@/lib/cx";
 import { withNext } from "@/lib/safe-next";
 
 const FIELDS = ["rating", "comment"] as const;
@@ -140,7 +141,10 @@ export function ReviewForm({ appId, mine }: { appId: number; mine: Review | null
     finish("Review deleted.");
   }
 
-  /** The inline confirm: focus goes to the safe choice, and back to Delete review if kept. */
+  /**
+   * The inline confirm: focus goes to the safe choice, and back to Delete review if kept. The
+   * confirm fades in from where the trigger was, but focus moves at once, never after it.
+   */
   function confirmDelete(open: boolean) {
     flushSync(() => setConfirming(open));
     (open ? keepRef : deleteRef).current?.focus();
@@ -208,7 +212,11 @@ export function ReviewForm({ appId, mine }: { appId: number; mine: Review | null
               <div
                 role="group"
                 aria-labelledby={`${id}-confirm`}
-                className="flex items-center gap-2"
+                className={cx(
+                  "flex items-center gap-2",
+                  "transition-[opacity,translate] duration-(--duration-fast) ease-out",
+                  "starting:opacity-0 motion-safe:starting:-translate-x-1",
+                )}
               >
                 <span id={`${id}-confirm`} className="text-sm text-ink">
                   Delete your review?
