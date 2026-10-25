@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { PendingHint } from "@/components/ui/PendingHint";
 import { CATEGORIES, type Category, type User } from "@/lib/api/types";
 import { categoryHref } from "@/lib/categories";
 import { cx } from "@/lib/cx";
@@ -44,6 +45,7 @@ function Sidebar({ active, publishHref }: { active: StoreSection; publishHref: s
               >
                 <NavIcon name={key} />
                 {label}
+                <PendingHint className="ml-auto" />
               </Link>
             </li>
           ))}
@@ -62,6 +64,7 @@ function Sidebar({ active, publishHref }: { active: StoreSection; publishHref: s
                   className={category === active ? undefined : "text-slate-500"}
                 />
                 {category}
+                <PendingHint className="ml-auto" />
               </Link>
             </li>
           ))}
@@ -86,10 +89,14 @@ function Sidebar({ active, publishHref }: { active: StoreSection; publishHref: s
   );
 }
 
-/** Below lg the sidebar folds into a swipeable row of chips. */
+/**
+ * Below lg the sidebar folds into a swipeable row of chips. A chip's pending dot sits in its right
+ * padding, so showing it never widens the chip.
+ */
 function ChipNav({ active }: { active: StoreSection }) {
   const chip =
-    "focus-ring inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-medium whitespace-nowrap transition-[background-color,scale] duration-(--duration-press) ease-out motion-safe:active:scale-97";
+    "focus-ring relative inline-flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-medium whitespace-nowrap transition-[background-color,scale] duration-(--duration-press) ease-out motion-safe:active:scale-97";
+  const hint = "absolute top-1/2 right-1.5 -translate-y-1/2";
   const idle = "bg-surface text-slate-700 shadow-card hover:bg-slate-100";
   return (
     <nav aria-label="Store" className="-mx-4 sm:-mx-6 lg:hidden">
@@ -103,6 +110,7 @@ function ChipNav({ active }: { active: StoreSection }) {
             >
               <NavIcon name={key} className="size-4" />
               {label}
+              <PendingHint className={hint} />
             </Link>
           </li>
         ))}
@@ -118,6 +126,7 @@ function ChipNav({ active }: { active: StoreSection }) {
                 className={cx("size-4", category !== active && "text-slate-500")}
               />
               {category}
+              <PendingHint className={hint} />
             </Link>
           </li>
         ))}

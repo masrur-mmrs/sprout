@@ -8,10 +8,12 @@ import {
   useEffect,
   useRef,
   useState,
+  useTransition,
   type ComponentProps,
   type FormEvent,
 } from "react";
 import { MAX_SEARCH_LENGTH } from "@/lib/api/types";
+import { cx } from "@/lib/cx";
 import { Input } from "./ui/Input";
 
 /** After the last keystroke: long enough to skip the letters of a word, short enough to feel live. */
@@ -23,7 +25,18 @@ function searchHref(q: string): string {
   return `/search?${new URLSearchParams({ q })}`;
 }
 
-function SearchField(props: ComponentProps<"input">) {
+/** Where the field's icon sits, and how it fades. */
+const ICON_SLOT =
+  "pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 transition-opacity duration-(--duration-fast) ease-out";
+const STROKE = "fill-none stroke-muted stroke-2";
+// Results that land within --duration-fast never show the spinner; it leaves without waiting.
+const ICON_DELAY = "delay-(--duration-fast)";
+
+/** `pending`: results are loading, so the magnifier turns into a spinner in the same spot. */
+function SearchField({
+  pending = false,
+  ...props
+}: ComponentProps<"input"> & { pending?: boolean }) {
   return (
     <>
       <label htmlFor="site-search" className="sr-only">
@@ -33,12 +46,28 @@ function SearchField(props: ComponentProps<"input">) {
         <svg
           viewBox="0 0 24 24"
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 fill-none stroke-muted stroke-2"
+          className={cx(ICON_SLOT, STROKE, pending && cx("opacity-0", ICON_DELAY))}
           strokeLinecap="round"
         >
           <circle cx="11" cy="11" r="6.5" />
           <path d="M16 16l4 4" />
         </svg>
+        {/* The slot fades and the arc animates, so the reduced-motion pulse (an opacity keyframe)
+            can't override the fade; the arc only animates while results load. */}
+        <span aria-hidden="true" className={cx(ICON_SLOT, pending ? ICON_DELAY : "opacity-0")}>
+          <svg
+            viewBox="0 0 24 24"
+            className={cx(
+              "block size-full",
+              STROKE,
+              pending && "motion-safe:animate-spin motion-reduce:animate-pulse",
+            )}
+            strokeLinecap="round"
+          >
+            {/* A three-quarter arc: 0.75 of the circumference (2π · 8 ≈ 50.3). */}
+            <circle cx="12" cy="12" r="8" strokeDasharray="37.7 50.3" />
+          </svg>
+        </span>
         <Input
           id="site-search"
           type="search"
@@ -94,6 +123,8 @@ function LiveSearch() {
   // overwrite the page being left, and a second push would add a history entry.
   const pushing = useRef(false);
   const queued = useRef<string | null>(null);
+  // Pending until the results being navigated to have rendered: drives the field's spinner.
+  const [isPending, startTransition] = useTransition();
 
   const navigate = useCallback(
     (raw: string) => {
@@ -108,9 +139,9 @@ function LiveSearch() {
         // Clearing the input anywhere else does nothing.
         if (!q) return;
         pushing.current = true;
-        router.push(searchHref(q));
+        startTransition(() => router.push(searchHref(q)));
       } else if (q !== query) {
-        router.replace(q ? searchHref(q) : "/search");
+        startTransition(() => router.replace(q ? searchHref(q) : "/search"));
       }
     },
     [router],
@@ -163,7 +194,11 @@ function LiveSearch() {
 
   return (
     <Form action="/search" role="search" onSubmit={onSubmit} className={FORM_CLASS}>
-      <SearchField value={value} onChange={(event) => onChange(event.currentTarget.value)} />
+      <SearchField
+        value={value}
+        pending={isPending}
+        onChange={(event) => onChange(event.currentTarget.value)}
+      />
     </Form>
   );
 }
