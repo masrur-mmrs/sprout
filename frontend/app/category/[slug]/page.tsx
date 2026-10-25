@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BrowseList } from "@/components/BrowseList";
+import { CategoryIcon } from "@/components/store/art";
+import { CATEGORY_BLURBS } from "@/components/store/copy";
+import { StoreList } from "@/components/store/StoreList";
+import { OtherCategories, publishHrefFor, StoreShell } from "@/components/store/StoreShell";
+import { CATEGORIES } from "@/lib/api/types";
 import { fetchApps, parsePage, parseSort } from "@/lib/browse";
 import { categoryFromSlug, categoryHref } from "@/lib/categories";
+import { getCurrentUser } from "@/lib/session";
 
 export async function generateMetadata({
   params,
@@ -21,18 +26,26 @@ export default async function CategoryPage({
   if (!category) notFound();
   const query = await searchParams;
   const sort = parseSort(query.sort);
-  const list = await fetchApps({ category, sort, page: parsePage(query.page) });
+  const [list, user] = await Promise.all([
+    fetchApps({ category, sort, page: parsePage(query.page) }),
+    getCurrentUser(),
+  ]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
-      <p className="mb-1 text-sm font-medium text-muted">Category</p>
-      <BrowseList
+    <StoreShell active={category} publishHref={publishHrefFor(user)}>
+      <StoreList
         title={category}
-        headingLevel="h1"
+        kind="Category"
+        description={CATEGORY_BLURBS[category]}
+        glyph={<CategoryIcon category={category} />}
+        wash={CATEGORIES.indexOf(category)}
         path={categoryHref(category)}
         sort={sort}
         data={list}
+        sortable
+        showCategory={false}
       />
-    </div>
+      <OtherCategories current={category} />
+    </StoreShell>
   );
 }

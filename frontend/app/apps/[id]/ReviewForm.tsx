@@ -153,7 +153,7 @@ export function ReviewForm({ appId, mine }: { appId: number; mine: Review | null
   const busy = pending !== null;
 
   return (
-    <Card className="sm:p-6">
+    <Card className="rounded-3xl border-0 p-6 sm:p-8">
       <h3 className="text-lg font-semibold">{mine ? "Edit your review" : "Write a review"}</h3>
       <form ref={formRef} method="post" noValidate onSubmit={save} className="mt-4">
         <FormAlert ref={alertRef} message={message} />

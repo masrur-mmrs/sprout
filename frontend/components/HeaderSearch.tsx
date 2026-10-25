@@ -17,7 +17,7 @@ import { Input } from "./ui/Input";
 /** After the last keystroke: long enough to skip the letters of a word, short enough to feel live. */
 const DEBOUNCE_MS = 250;
 
-const FORM_CLASS = "order-last w-full sm:order-none sm:max-w-md sm:flex-1";
+const FORM_CLASS = "order-last w-full sm:order-none sm:ml-auto sm:max-w-sm sm:flex-1";
 
 function searchHref(q: string): string {
   return `/search?${new URLSearchParams({ q })}`;
@@ -33,7 +33,7 @@ function SearchField(props: ComponentProps<"input">) {
         <svg
           viewBox="0 0 24 24"
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 fill-none stroke-muted stroke-2"
+          className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 fill-none stroke-muted stroke-2"
           strokeLinecap="round"
         >
           <circle cx="11" cy="11" r="6.5" />
@@ -46,7 +46,8 @@ function SearchField(props: ComponentProps<"input">) {
           maxLength={MAX_SEARCH_LENGTH}
           placeholder="Search apps"
           autoComplete="off"
-          className="pl-9"
+          // A pill, like the store's tabs; the muted edge still gives the field its 3:1 outline.
+          className="h-10 rounded-full pl-10"
           {...props}
         />
       </div>

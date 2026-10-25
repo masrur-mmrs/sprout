@@ -29,7 +29,7 @@ export function SignOutButton() {
   }
 
   return (
-    <Button variant="ghost" size="sm" disabled={pending} onClick={signOut}>
+    <Button variant="ghost" size="sm" className="rounded-full" disabled={pending} onClick={signOut}>
       Sign out
     </Button>
   );

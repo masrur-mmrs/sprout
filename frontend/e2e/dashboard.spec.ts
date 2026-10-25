@@ -129,7 +129,7 @@ test("a new developer publishes, edits and deletes an app", async ({ page }) => 
     await expect(main.getByRole("heading", { level: 2 }).first()).toHaveText(title);
     await open(page, "/?sort=new");
     const newest = page
-      .getByRole("region", { name: "All apps" })
+      .getByRole("region", { name: "New releases" })
       .getByRole("link", { name: /downloads/ })
       .first();
     await expect(newest).toContainText(title);
