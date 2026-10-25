@@ -17,6 +17,7 @@ function tint(id: number) {
 }
 
 const ICON_SIZES = {
+  sm: { px: 48, className: "size-12 text-xl" },
   md: { px: 56, className: "size-14 text-2xl" },
   lg: { px: 72, className: "size-18 text-3xl" },
   xl: { px: 96, className: "size-20 text-4xl sm:size-24" },

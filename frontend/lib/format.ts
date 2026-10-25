@@ -17,3 +17,20 @@ export function formatCount(n: number): string {
 export function formatDay(iso: string): string {
   return DAY.format(new Date(iso));
 }
+
+const BYTES = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
+const BYTE_UNITS = ["B", "KB", "MB", "GB"];
+
+/**
+ * 1024-based, so the upload limits read as round numbers: 524,288,000 → "500 MB", 1536 → "1.5 KB".
+ * It moves up a unit once the rounded value would reach 1,024, so 1,048,575 bytes is "1 MB".
+ */
+export function formatBytes(n: number): string {
+  let value = n;
+  let unit = 0;
+  while (unit < BYTE_UNITS.length - 1 && Math.round(value * 10) / 10 >= 1024) {
+    value /= 1024;
+    unit++;
+  }
+  return `${BYTES.format(value)} ${BYTE_UNITS[unit]}`;
+}

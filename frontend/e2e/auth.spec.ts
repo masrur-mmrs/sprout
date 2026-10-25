@@ -4,7 +4,8 @@ import { accountNav, open, SEED, SEED_PASSWORD, signIn, signUp, uniqueUser } fro
 
 // Phase 9's flows. Budget per run, so two runs back to back stay under the backend's limits (10 a
 // minute per IP for each of signup and signin, 3 forgot-password requests per 15 minutes): 2
-// sign-ups and 3 sign-ins here (plus 1 and 1 in review.spec.ts), and 1 forgot request.
+// sign-ups and 3 sign-ins here (plus 1 and 1 in review.spec.ts, and 1 sign-up in
+// dashboard.spec.ts), and 1 forgot request.
 
 test("sign up, see yourself in the header, sign out, sign back in", async ({ page }) => {
   const user = uniqueUser();
@@ -22,6 +23,14 @@ test("sign up, see yourself in the header, sign out, sign back in", async ({ pag
   await expect(accountNav(page)).toContainText(user.username);
   // No reload: the header re-rendered in place.
   expect(await page.evaluate(() => "__e2eMark" in window)).toBe(true);
+
+  // A `user` is told why the dashboard isn't theirs, rather than shown an error (Phase 11).
+  await open(page, "/dashboard");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Publishing needs a developer account" }),
+  ).toBeVisible();
+  await expect(page.getByRole("main")).toContainText(`You’re signed in as ${user.username}`);
+  await expect(accountNav(page).getByRole("link", { name: "Dashboard" })).toHaveCount(0);
 
   await accountNav(page).getByRole("button", { name: "Sign out" }).click();
   await expect(accountNav(page).getByRole("link", { name: "Sign in" })).toBeVisible();

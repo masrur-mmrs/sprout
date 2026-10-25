@@ -171,3 +171,71 @@ export interface PutReviewBody {
   rating: number;
   comment?: string | null;
 }
+
+// Publishing limits and allow-lists, mirrored from backend/src/modules/apps/apps.schemas.ts and
+// checked by lib/app-validation.ts before any upload starts. Lengths count UTF-16 units.
+export const MAX_TITLE_LENGTH = 100;
+export const MAX_TAGLINE_LENGTH = 255;
+export const MAX_DESCRIPTION_LENGTH = 5000;
+export const MAX_VERSION_LENGTH = 20;
+/** 500 MiB, enforced by storage through the signed length range. */
+export const MAX_BINARY_BYTES = 500 * 1024 * 1024;
+/** 1 MiB. */
+export const MAX_ICON_BYTES = 1024 * 1024;
+/** Matched case-insensitively, so `.ZIP` and `.appimage` pass too. */
+export const BINARY_EXTENSIONS = [
+  ".zip",
+  ".dmg",
+  ".apk",
+  ".exe",
+  ".msi",
+  ".pkg",
+  ".deb",
+  ".AppImage",
+] as const;
+/** No SVG: it can carry scripts, and the icons bucket is public. */
+export const ICON_CONTENT_TYPES = ["image/png", "image/webp", "image/jpeg"] as const;
+
+export type IconContentType = (typeof ICON_CONTENT_TYPES)[number];
+
+/** The file extensions each icon type may have, matched case-insensitively. */
+export const ICON_EXTENSIONS: Record<IconContentType, readonly string[]> = {
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+  "image/jpeg": [".jpg", ".jpeg"],
+};
+
+export type UploadKind = "binary" | "icon";
+
+/** `POST /api/apps/uploads`. A binary's `contentType` is ignored: it's stored as octet-stream. */
+export interface UploadRequestBody {
+  kind: UploadKind;
+  filename: string;
+  contentType: string;
+  size: number;
+}
+
+/**
+ * `POST /api/apps/uploads`'s 200. `uploadUrl` is a bearer credential for 15 minutes: PUT the file
+ * to it with exactly `headers`, and never log, render or store it. `key` is opaque; send it back
+ * as is.
+ */
+export interface UploadUrlResponse {
+  uploadUrl: string;
+  key: string;
+  headers: Record<string, string>;
+}
+
+/** `POST /api/apps` → 201 PublicApp. The backend trims the text; the keys come from /uploads. */
+export interface CreateAppBody {
+  title: string;
+  tagline: string;
+  description: string;
+  category: Category;
+  version: string;
+  binaryKey: string;
+  iconKey?: string;
+}
+
+/** `PATCH /api/apps/:id` → 200 PublicApp: any non-empty subset. An icon can't be removed. */
+export type UpdateAppBody = Partial<CreateAppBody>;
