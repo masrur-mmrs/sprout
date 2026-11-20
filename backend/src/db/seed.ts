@@ -61,8 +61,7 @@ const USERS: SeedUser[] = [
 ];
 
 // Search fixtures for Phase 6: q=spotfy finds Spotlify, q=phto editr finds Photo Editor, and
-// "pomodoro" appears only in Focus Timer's description. Those first two have no logo, so the
-// letter icon still shows up in the store.
+// "pomodoro" appears only in Focus Timer's description.
 const APPS: SeedApp[] = [
   {
     developer: "nova_studio",
@@ -73,6 +72,7 @@ const APPS: SeedApp[] = [
     category: "Music & Audio",
     version: "2.3.1",
     file: "spotlify-2.3.1.dmg",
+    logo: "spotlify.webp",
     downloads: 18420,
     daysAgo: 210,
   },
@@ -85,6 +85,7 @@ const APPS: SeedApp[] = [
     category: "Photo & Video",
     version: "4.0.2",
     file: "photo-editor-4.0.2.exe",
+    logo: "photo_editor.png",
     downloads: 9310,
     daysAgo: 120,
   },
