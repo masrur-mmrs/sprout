@@ -1,0 +1,10 @@
+# Builds and pushes the sprout-api image. backend/deploy.sh runs it with the sprout-build
+# service account, which can only push to the `sprout` repository and write build logs.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "."]
+images:
+  - "${_IMAGE}"
+options:
+  # Required when a build runs as a user-specified service account.
+  logging: CLOUD_LOGGING_ONLY

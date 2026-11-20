@@ -1,0 +1,9 @@
+# What `gcloud builds submit` uploads. Without this file it would upload .env as well.
+.gcloudignore
+.env
+.env.*
+node_modules/
+dist/
+coverage/
+test/
+*.tsbuildinfo
