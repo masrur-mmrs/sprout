@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { AppIcon } from "@/components/AppCard";
 import { FormAlert, toFormErrors, type FieldErrors } from "@/components/form";
-import { Button, buttonStyles } from "@/components/ui/Button";
+import { FormIcon } from "@/components/store/art";
+import { PRESS } from "@/components/store/parts";
 import { Field } from "@/components/ui/Field";
 import { SelectField } from "@/components/ui/Select";
 import { TextareaField } from "@/components/ui/Textarea";
@@ -35,9 +36,12 @@ import {
   type AppText,
   type AppTextField,
 } from "@/lib/app-validation";
+import { cx } from "@/lib/cx";
 import { withNext } from "@/lib/safe-next";
 import { uploadFile } from "@/lib/upload";
 import { EMPTY_SLOT, FileField, type UploadSlot } from "./FileField";
+import { LaunchPath } from "./LaunchPath";
+import { StorePreview } from "./StorePreview";
 
 // In page order, so focus goes to the first invalid control.
 const FIELDS = [
@@ -78,6 +82,73 @@ interface UploadFailure {
 /** Line breaks as a textarea reports them (\n), so stored text compares with typed text. */
 function normalize(text: string): string {
   return text.replace(/\r\n?/g, "\n");
+}
+
+// The store's pill buttons. Ink on brand is 7.8:1, and 5.6:1 on the green-600 hover.
+const SUBMIT = cx(
+  "focus-ring inline-flex h-12 w-full items-center justify-center rounded-full bg-brand px-6 text-base font-semibold text-ink hover:bg-green-600",
+  "disabled:cursor-not-allowed disabled:opacity-60",
+  PRESS,
+);
+const CANCEL = cx(
+  "focus-ring inline-flex h-11 w-full items-center justify-center rounded-full px-6 font-semibold text-ink hover:bg-slate-100",
+  PRESS,
+);
+
+/**
+ * One step of the form, on the storefront's white card. Its number turns into a check, popping in,
+ * once the step is complete.
+ */
+function Step({
+  n,
+  done,
+  title,
+  note,
+  className,
+  children,
+}: {
+  n: number;
+  done: boolean;
+  title: string;
+  note: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={id}
+      className={cx("min-w-0 rounded-3xl bg-surface p-5 shadow-card sm:p-7", className)}
+    >
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className={cx(
+            "flex size-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
+            "transition-colors duration-(--duration-fast) ease-out",
+            done ? "bg-brand text-ink" : "bg-green-100 text-green-800",
+          )}
+        >
+          <span
+            key={String(done)}
+            className={cx(
+              "flex transition-[opacity,scale] duration-(--duration-spring) ease-(--ease-spring)",
+              "starting:opacity-0 motion-safe:starting:scale-50",
+            )}
+          >
+            {done ? <FormIcon name="check" className="size-4.5" /> : n}
+          </span>
+        </span>
+        <div className="min-w-0">
+          <h2 id={id} className="text-xl font-semibold text-ink">
+            {title}
+          </h2>
+          <p className="mt-0.5 text-sm text-slate-600">{note}</p>
+        </div>
+      </div>
+      <div className="mt-6">{children}</div>
+    </section>
+  );
 }
 
 /** The fields whose trimmed value differs from the app's. */
@@ -121,6 +192,8 @@ export function AppForm({ app }: { app?: AppDetail }) {
   const [message, setMessage] = useState<string | null>(null);
   const [alertLink, setAlertLink] = useState<AlertLink>(null);
   const [pending, setPending] = useState<"upload" | "save" | null>(null);
+  // Saved, while the dashboard loads: the path finishes and the listing goes live meanwhile.
+  const [published, setPublished] = useState(false);
   // `pending` lands a render later; this blocks a second submit or retry fired before it does.
   const inFlight = useRef(false);
 
@@ -317,6 +390,7 @@ export function AppForm({ app }: { app?: AppDetail }) {
       return;
     }
     // The form stays locked until the dashboard replaces it.
+    setPublished(true);
     toast.show(app ? "Changes saved." : "App published.", "success");
     if (!left()) router.push("/dashboard");
   }
@@ -340,9 +414,29 @@ export function AppForm({ app }: { app?: AppDetail }) {
     submitRef.current?.focus();
   }
 
+  // What's in place, for the steps' checks and the launch path. An edit keeps the files it has.
+  const detailsReady = Object.keys(validateAppText(text)).length === 0;
+  const binaryReady = slots.binary.file ? !validateBinary(slots.binary.file) : Boolean(app);
+  const iconReady = slots.icon.file ? !validateIcon(slots.icon.file) : Boolean(app?.icon_url);
+  const filesReady = binaryReady && (!slots.icon.file || iconReady);
+  // The app as the store will show it: the chosen icon, the current one, or the title's letter.
+  const listing = (size: "sm" | "lg") => (
+    <AppIcon
+      app={{
+        id: app?.id ?? 0,
+        title: text.title.trim() || "Your app",
+        icon_url: slots.icon.preview ?? app?.icon_url ?? null,
+      }}
+      size={size}
+    />
+  );
+
   const busy = pending !== null;
-  const submitLabel =
-    pending === "upload"
+  const submitLabel = published
+    ? app
+      ? "Saved"
+      : "Published!"
+    : pending === "upload"
       ? "Uploading…"
       : pending === "save"
         ? app
@@ -353,7 +447,7 @@ export function AppForm({ app }: { app?: AppDetail }) {
           : "Publish app";
 
   return (
-    <form ref={formRef} method="post" noValidate onSubmit={submit} className="mt-8">
+    <form ref={formRef} method="post" noValidate onSubmit={submit} className="mt-6 sm:mt-8">
       <FormAlert ref={alertRef} message={message} />
       {alertLink === "sign-in" && (
         <p className="-mt-3 mb-5 text-sm">
@@ -366,114 +460,168 @@ export function AppForm({ app }: { app?: AppDetail }) {
         </p>
       )}
 
-      {/* Locked while anything is in flight. min-w-0: a fieldset is otherwise min-content wide. */}
-      <fieldset disabled={busy} className="flex min-w-0 flex-col gap-8">
-        <div className="flex flex-col gap-5">
-          <Field
-            label="Title"
-            name="title"
-            value={text.title}
-            onChange={(event) => edit("title", event.currentTarget.value)}
-            maxLength={MAX_TITLE_LENGTH}
-            autoComplete="off"
-            errors={errors.title}
-          />
-          <Field
-            label="Tagline"
-            name="tagline"
-            value={text.tagline}
-            onChange={(event) => edit("tagline", event.currentTarget.value)}
-            maxLength={MAX_TAGLINE_LENGTH}
-            autoComplete="off"
-            hint="One line on what it does"
-            errors={errors.tagline}
-          />
-          <TextareaField
-            label="Description"
-            name="description"
-            value={text.description}
-            onChange={(event) => edit("description", event.currentTarget.value)}
-            maxLength={MAX_DESCRIPTION_LENGTH}
-            rows={6}
-            hint="Up to 5,000 characters"
-            errors={errors.description}
-          />
-          <div className="grid gap-5 sm:grid-cols-2">
-            <SelectField
-              label="Category"
-              name="category"
-              value={text.category}
-              onChange={(event) => edit("category", event.currentTarget.value)}
-              errors={errors.category}
-            >
-              {!app && (
-                <option value="" disabled>
-                  Choose a category
-                </option>
-              )}
-              {CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </SelectField>
+      {/* Locked while anything is in flight. min-w-0: a fieldset is otherwise min-content wide.
+          Wide screens put the steps in a column beside the preview, which follows the scroll;
+          narrow ones stack it between the files and the publish, in source order. */}
+      <fieldset
+        disabled={busy}
+        className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8"
+      >
+        <Step
+          n={1}
+          done={detailsReady}
+          title="About your app"
+          note="What people see on your store page."
+          className="lg:col-start-1"
+        >
+          <div className="flex flex-col gap-5">
             <Field
-              label="Version"
-              name="version"
-              value={text.version}
-              onChange={(event) => edit("version", event.currentTarget.value)}
-              maxLength={MAX_VERSION_LENGTH}
+              label="Title"
+              name="title"
+              value={text.title}
+              onChange={(event) => edit("title", event.currentTarget.value)}
+              maxLength={MAX_TITLE_LENGTH}
               autoComplete="off"
-              spellCheck={false}
-              hint="Like 1.2 or 2.0.1-beta.1"
-              errors={errors.version}
+              errors={errors.title}
+            />
+            <Field
+              label="Tagline"
+              name="tagline"
+              value={text.tagline}
+              onChange={(event) => edit("tagline", event.currentTarget.value)}
+              maxLength={MAX_TAGLINE_LENGTH}
+              autoComplete="off"
+              hint="One line on what it does"
+              errors={errors.tagline}
+            />
+            <TextareaField
+              label="Description"
+              name="description"
+              value={text.description}
+              onChange={(event) => edit("description", event.currentTarget.value)}
+              maxLength={MAX_DESCRIPTION_LENGTH}
+              rows={6}
+              hint="Up to 5,000 characters"
+              errors={errors.description}
+            />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <SelectField
+                label="Category"
+                name="category"
+                value={text.category}
+                onChange={(event) => edit("category", event.currentTarget.value)}
+                errors={errors.category}
+              >
+                {!app && (
+                  <option value="" disabled>
+                    Choose a category
+                  </option>
+                )}
+                {CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </SelectField>
+              <Field
+                label="Version"
+                name="version"
+                value={text.version}
+                onChange={(event) => edit("version", event.currentTarget.value)}
+                maxLength={MAX_VERSION_LENGTH}
+                autoComplete="off"
+                spellCheck={false}
+                hint="Like 1.2 or 2.0.1-beta.1"
+                errors={errors.version}
+              />
+            </div>
+          </div>
+        </Step>
+
+        <Step
+          n={2}
+          done={filesReady}
+          title="Your files"
+          note={
+            app
+              ? "Replace either one, or keep what’s there."
+              : "The file people download, and an icon for the store."
+          }
+          className="lg:col-start-1"
+        >
+          <div className="flex flex-col gap-6">
+            <FileField
+              name="binary"
+              label={app ? "Replace binary" : "Binary"}
+              prompt={app ? "Drop a new build here" : "Drop your build here"}
+              accept={BINARY_EXTENSIONS.join(",")}
+              hint={
+                app
+                  ? `Optional: leave it empty to keep the current file. ${BINARY_TYPES}.`
+                  : `The file people download: ${BINARY_TYPES}.`
+              }
+              progressLabel="Binary upload"
+              slot={slots.binary}
+              errors={errors.binaryKey}
+              onChoose={(file) => choose("binary", file)}
+              onRetry={() => retry("binary")}
+            />
+            <FileField
+              name="icon"
+              image
+              current={app && <AppIcon app={app} size="md" />}
+              label={app ? "Replace icon" : "Icon"}
+              prompt={app ? "Drop a new icon here" : "Drop a square icon here"}
+              accept={ICON_CONTENT_TYPES.join(",")}
+              hint={
+                app
+                  ? `Optional: a square ${ICON_TYPES}. An icon can be replaced, not removed.`
+                  : `Optional: a square ${ICON_TYPES}.`
+              }
+              progressLabel="Icon upload"
+              slot={slots.icon}
+              errors={errors.iconKey}
+              onChoose={(file) => choose("icon", file)}
+              onRetry={() => retry("icon")}
             />
           </div>
-        </div>
+        </Step>
 
-        <div className="flex flex-col gap-6 border-t border-slate-200 pt-8">
-          <FileField
-            name="binary"
-            label={app ? "Replace binary" : "Binary"}
-            accept={BINARY_EXTENSIONS.join(",")}
-            hint={
-              app
-                ? `Optional: leave it empty to keep the current file. ${BINARY_TYPES}.`
-                : `The file people download: ${BINARY_TYPES}.`
-            }
-            progressLabel="Binary upload"
-            slot={slots.binary}
-            errors={errors.binaryKey}
-            onChoose={(file) => choose("binary", file)}
-            onRetry={() => retry("binary")}
-          />
-          <FileField
-            name="icon"
-            image
-            current={app && <AppIcon app={app} size="md" />}
-            label={app ? "Replace icon" : "Icon"}
-            accept={ICON_CONTENT_TYPES.join(",")}
-            hint={
-              app
-                ? `Optional: a square ${ICON_TYPES}. An icon can be replaced, not removed.`
-                : `Optional: a square ${ICON_TYPES}.`
-            }
-            progressLabel="Icon upload"
-            slot={slots.icon}
-            errors={errors.iconKey}
-            onChoose={(file) => choose("icon", file)}
-            onRetry={() => retry("icon")}
+        <div className="lg:sticky lg:top-24 lg:col-start-2 lg:row-span-3 lg:row-start-1">
+          <StorePreview
+            text={text}
+            icon={listing("lg")}
+            iconKey={slots.icon.preview ?? app?.icon_url ?? "letter"}
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button ref={submitRef} type="submit">
-            {submitLabel}
-          </Button>
-          <Link href="/dashboard" className={buttonStyles("ghost")}>
-            Cancel
-          </Link>
-        </div>
+        <Step
+          n={3}
+          done={published}
+          title={app ? "Save your changes" : "Plant it on Sprout"}
+          note={
+            app
+              ? "New files upload first, then your changes go live."
+              : "Your files go straight to storage, then your app is listed."
+          }
+          className="lg:col-start-1"
+        >
+          <LaunchPath
+            slots={slots}
+            ready={{ details: detailsReady, binary: binaryReady, icon: iconReady }}
+            stage={published ? "published" : pending}
+            editing={Boolean(app)}
+            listing={listing("sm")}
+          />
+          <div className="mt-6 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <button ref={submitRef} type="submit" className={SUBMIT}>
+              {submitLabel}
+            </button>
+            <Link href="/dashboard" className={CANCEL}>
+              Cancel
+            </Link>
+          </div>
+        </Step>
       </fieldset>
     </form>
   );

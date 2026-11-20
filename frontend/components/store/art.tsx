@@ -105,6 +105,36 @@ export function ArrowIcon({
   );
 }
 
+/** The publish form's glyphs: its steps, its files, and how each one went. */
+const FORM_ICONS = {
+  details: <path d="M5 6.5h14M5 10.5h14M5 14.5h9M5 18.5h6" />,
+  binary: (
+    <>
+      <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
+      <path d="M4 7.5l8 4.5 8-4.5M12 12v9" />
+    </>
+  ),
+  icon: (
+    <>
+      <rect x="4" y="4" width="16" height="16" rx="4" />
+      <circle cx="9.5" cy="9.5" r="1.5" />
+      <path d="M20 15.5l-4.5-4.5L7 19.5" />
+    </>
+  ),
+  check: <path d="M5.5 12.5l4 4 9-9" />,
+  alert: <path d="M12 7v6M12 17h.01" />,
+} satisfies Record<string, ReactNode>;
+
+export function FormIcon({
+  name,
+  className,
+}: {
+  name: keyof typeof FORM_ICONS;
+  className?: string;
+}) {
+  return <Glyph className={className}>{FORM_ICONS[name]}</Glyph>;
+}
+
 /**
  * Sprout's mascot: a seedling with a face. Cyan body, two green leaves, waving. Every drawing on
  * the storefront is decorative, so each is hidden from assistive tech.

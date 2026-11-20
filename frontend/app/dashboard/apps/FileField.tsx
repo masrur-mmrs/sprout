@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { FormIcon } from "@/components/store/art";
 import { Button } from "@/components/ui/Button";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { cx } from "@/lib/cx";
@@ -38,6 +39,8 @@ const STATUS = {
 export interface FileFieldProps {
   name: string;
   label: string;
+  /** The drop zone's headline, e.g. "Drop your build here". */
+  prompt: string;
   /** A hint for the file picker only; the form validates the file itself. */
   accept: string;
   hint: string;
@@ -53,15 +56,18 @@ export interface FileFieldProps {
 }
 
 /**
- * A native file input (no drag-and-drop), the chosen file's name and size, and once it uploads,
- * its progress, then Uploaded, or Failed with Retry. Controlled by the form, which owns the
- * uploads. The input keeps the platform's own picker and keyboard behavior; `file:` styles its
- * button like a secondary Button, press included. The file's card, its status and an error fade in
- * and settle as they appear, the way Field's messages do.
+ * A drop zone, the chosen file's name and size, and once it uploads, its progress, then Uploaded,
+ * or Failed with Retry. Controlled by the form, which owns the uploads. The zone is a native file
+ * input stretched over it and made transparent: a click anywhere opens the platform's picker, a
+ * file dropped on it lands in the input natively (the same change event as a pick, so the same
+ * checks), and the keyboard works as the platform's does. The zone wears the input's focus ring,
+ * presses in on pointer-down, and tints while a file is dragged over it. The file's card, its
+ * status and an error fade in and settle as they appear, the way Field's messages do.
  */
 export function FileField({
   name,
   label,
+  prompt,
   accept,
   hint,
   progressLabel,
@@ -78,32 +84,72 @@ export function FileField({
   const invalid = errors !== undefined && errors.length > 0;
   const { file, preview, status, progress } = slot;
   const shown = status === "idle" ? null : STATUS[status];
+  const [dragging, setDragging] = useState(false);
+
+  // Icons show the chosen image, then the current one; binaries a package. All decorative.
+  let thumb: ReactNode;
+  if (image && preview) {
+    thumb = (
+      // A blob: URL of the chosen file. next/image can't take one.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={preview}
+        alt=""
+        width={56}
+        height={56}
+        className="size-14 shrink-0 rounded-[22.5%] bg-slate-100 object-cover ring-1 ring-ink/5"
+      />
+    );
+  } else if (image && current) {
+    thumb = current;
+  } else {
+    thumb = (
+      <span
+        aria-hidden="true"
+        className={cx(
+          "flex size-14 shrink-0 items-center justify-center",
+          image
+            ? "rounded-[22.5%] bg-cyan-100 text-cyan-800"
+            : "rounded-2xl bg-green-100 text-green-800",
+        )}
+      >
+        <FormIcon name={image ? "icon" : "binary"} className="size-6" />
+      </span>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium text-ink">
         {label}
       </label>
-      <div className="flex items-center gap-4">
-        {image &&
-          (preview ? (
-            // A blob: URL of the chosen file. next/image can't take one.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={preview}
-              alt=""
-              width={56}
-              height={56}
-              className="size-14 shrink-0 rounded-[22.5%] bg-slate-100 object-cover ring-1 ring-ink/5"
-            />
-          ) : (
-            (current ?? (
-              <span
-                aria-hidden="true"
-                className="size-14 shrink-0 rounded-[22.5%] border border-dashed border-slate-300"
-              />
-            ))
-          ))}
+      <div
+        className={cx(
+          "group relative flex items-center gap-4 rounded-2xl border-2 border-dashed p-4",
+          "transition-[background-color,border-color,scale] duration-(--duration-press) ease-out",
+          "has-[input:disabled]:opacity-50 motion-safe:has-[input:enabled:active]:scale-[0.99]",
+          "has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-offset-2 has-[input:focus-visible]:outline-green-700",
+          dragging
+            ? "border-green-600 bg-green-50"
+            : invalid
+              ? "border-red-700/50 bg-red-50/60"
+              : "border-slate-300 bg-linear-to-br from-surface to-green-50 hover:border-green-500",
+        )}
+      >
+        {thumb}
+        {/* What the zone does, for the eye: the input itself is named by its label. */}
+        <span aria-hidden="true" className="min-w-0 flex-1">
+          <span className="block font-semibold text-ink">{dragging ? "Drop it here" : prompt}</span>
+          <span className="mt-0.5 block text-sm text-muted">
+            {file ? "Or click to choose a different one." : "Or click to browse your files."}
+          </span>
+        </span>
+        <span
+          aria-hidden="true"
+          className="hidden h-9 shrink-0 items-center rounded-full bg-ink px-4 text-sm font-semibold text-surface group-hover:bg-slate-700 sm:inline-flex"
+        >
+          {file ? "Change" : "Browse"}
+        </span>
         <input
           id={id}
           type="file"
@@ -112,14 +158,10 @@ export function FileField({
           aria-invalid={invalid || undefined}
           aria-describedby={[hintId, invalid && errorId].filter(Boolean).join(" ")}
           onChange={(event) => onChoose(event.currentTarget.files?.[0] ?? null)}
-          className={cx(
-            "focus-ring block w-full min-w-0 rounded-control text-sm text-muted",
-            "file:mr-3 file:h-9 file:cursor-pointer file:rounded-control file:border file:border-slate-300 file:bg-surface file:px-3.5 file:text-sm file:font-semibold file:text-ink",
-            "hover:file:bg-slate-100 aria-invalid:file:border-red-700",
-            "file:transition-[color,background-color,border-color,scale] file:duration-(--duration-press) file:ease-out",
-            "motion-safe:not-disabled:active:file:scale-97",
-            "disabled:cursor-not-allowed disabled:opacity-50 disabled:file:cursor-not-allowed",
-          )}
+          onDragEnter={(event) => setDragging(!event.currentTarget.disabled)}
+          onDragLeave={() => setDragging(false)}
+          onDrop={() => setDragging(false)}
+          className="absolute inset-0 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
         />
       </div>
       <p id={hintId} className="text-sm text-muted">
@@ -129,7 +171,7 @@ export function FileField({
       {file && (
         <div
           className={cx(
-            "mt-1 rounded-control border border-slate-200 px-3.5 py-3",
+            "mt-1 rounded-2xl bg-surface px-4 py-3 shadow-card ring-1 ring-ink/5",
             "transition-[opacity,translate] duration-(--duration-fast) ease-out",
             "starting:opacity-0 motion-safe:starting:-translate-y-1",
           )}
