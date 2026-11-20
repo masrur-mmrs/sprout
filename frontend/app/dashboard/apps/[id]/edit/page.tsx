@@ -41,7 +41,7 @@ export default async function EditAppPage({ params }: PageProps<"/dashboard/apps
   if (!app || app.developer_id !== user.id) notFound();
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
       <TextLink href="/dashboard" className="text-sm">
         Back to dashboard
       </TextLink>
