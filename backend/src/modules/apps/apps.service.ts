@@ -141,7 +141,10 @@ function binaryObject(fileUrl: string): StoredObject | null {
   return key === "" ? null : { label: "binary", bucket: env.GCS_BINARY_BUCKET, key };
 }
 
-/** The object a stored icon_url points at, if it's in the icons bucket. Seeded apps have none. */
+/**
+ * The object a stored icon_url points at, if it's in the icons bucket. That includes a seeded
+ * app's logo under `seed/`. A NULL icon_url, or one in another bucket, has none.
+ */
 function iconObject(storage: StorageService, iconUrl: string | null): StoredObject | null {
   const prefix = storage.publicUrl("");
   const key = iconUrl?.startsWith(prefix) ? iconUrl.slice(prefix.length) : "";

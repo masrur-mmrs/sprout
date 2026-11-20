@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import bcrypt from "bcrypt";
 import { describe, expect, it } from "vitest";
-import { SEED_PASSWORD, seed } from "../src/db/seed.js";
+import { type IconUploader, SEED_PASSWORD, seed } from "../src/db/seed.js";
 import { rowCounts, useTestDb } from "./helpers/db.js";
 
 const pool = useTestDb();
@@ -22,8 +22,50 @@ const CATEGORIES = [
 
 describe("seed", () => {
   it("runs cleanly on a fresh database", async () => {
-    expect(await seed()).toEqual({ users: 5, apps: 15, reviews: 27 });
+    expect(await seed()).toEqual({ users: 5, apps: 15, reviews: 27, icons: 0 });
     expect(await rowCounts()).toEqual({ users: 5, password_resets: 0, apps: 15, reviews: 27 });
+
+    // Nothing was uploaded, so no app may point at an icon object.
+    const icons = await pool.query("SELECT 1 FROM apps WHERE icon_url IS NOT NULL");
+    expect(icons.rowCount).toBe(0);
+  });
+
+  it("uploads each logo to its own key and stores the URL the uploader returns", async () => {
+    const uploads: Parameters<IconUploader>[0][] = [];
+    const summary = await seed({
+      uploadIcon: async (logo) => {
+        uploads.push(logo);
+        return `https://icons.test/${logo.key}`;
+      },
+    });
+
+    expect(summary.icons).toBe(13);
+    for (const { file, key, contentType } of uploads) {
+      expect(file).toMatch(/[/\\]logos[/\\]watermarked_img_\d+\.jpg$/);
+      expect(key).toMatch(/^seed\/[a-z0-9-]+\.jpg$/);
+      expect(contentType).toBe("image/jpeg");
+    }
+
+    const { rows } = await pool.query<{ title: string; icon_url: string | null }>(
+      "SELECT title, icon_url FROM apps",
+    );
+    const urls = rows.flatMap((app) => app.icon_url ?? []);
+    // Deleting an app deletes its icon object, so no two apps may share one.
+    expect(new Set(urls).size).toBe(13);
+    expect(urls.sort()).toEqual(uploads.map((logo) => `https://icons.test/${logo.key}`).sort());
+    expect(rows.find((app) => app.title === "Habit Garden")?.icon_url).toBe(
+      "https://icons.test/seed/habit-garden.jpg",
+    );
+    const letterIcons = rows.filter((app) => app.icon_url === null).map((app) => app.title);
+    expect(letterIcons.sort()).toEqual(["Photo Editor", "Spotlify"]);
+  });
+
+  it("inserts nothing when a logo upload fails", async () => {
+    const uploadIcon: IconUploader = async () => {
+      throw new Error("403: no storage.objects.create on the icons bucket");
+    };
+    await expect(seed({ uploadIcon })).rejects.toThrow("403");
+    expect(await rowCounts()).toMatchObject({ users: 0, apps: 0 });
   });
 
   it("produces data that keeps the schema's and later phases' rules", async () => {

@@ -29,8 +29,9 @@ export interface AppIconProps {
 }
 
 /**
- * The app's icon, decorative (its title is always beside it). Seed apps have none, so the usual
- * case is the title's first letter on a tint. A rounded square at 22.5%, like a platform icon.
+ * The app's icon, decorative (its title is always beside it). An app without one (uploaded without
+ * an icon, or seeded without a logo) shows the title's first letter on a tint. A rounded square at
+ * 22.5%, like a platform icon.
  */
 export function AppIcon({ app, size }: AppIconProps) {
   const { px, className } = ICON_SIZES[size];

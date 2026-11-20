@@ -1,12 +1,23 @@
 import { existsSync, realpathSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { extname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { Storage } from "@google-cloud/storage";
 import bcrypt from "bcrypt";
 import type { PoolClient } from "pg";
 import { env } from "../config/env.js";
+import {
+  ICON_CONTENT_TYPES,
+  ICON_EXTENSIONS,
+  type IconContentType,
+} from "../modules/apps/apps.schemas.js";
+import { createGcsStorage } from "../services/storage/gcsStorage.js";
 import { pool, withTransaction } from "./pool.js";
 
 /** Every seed account signs in with this password. Dev data only: seed() refuses production. */
 export const SEED_PASSWORD = "sprout-dev-password";
+
+/** backend/logos: the app logos, under the names the image generator gave them. */
+const LOGO_DIR = fileURLToPath(new URL("../../logos/", import.meta.url));
 
 // The plan's fixed category list (Cross-Phase Contracts). Phase 5 adds the shared backend constant.
 type Category =
@@ -35,6 +46,8 @@ interface SeedApp {
   category: Category;
   version: string;
   file: string;
+  /** A file in LOGO_DIR. Apps without one keep the letter icon. */
+  logo?: string;
   downloads: number;
   daysAgo: number;
 }
@@ -48,7 +61,8 @@ const USERS: SeedUser[] = [
 ];
 
 // Search fixtures for Phase 6: q=spotfy finds Spotlify, q=phto editr finds Photo Editor, and
-// "pomodoro" appears only in Focus Timer's description.
+// "pomodoro" appears only in Focus Timer's description. Those first two have no logo, so the
+// letter icon still shows up in the store.
 const APPS: SeedApp[] = [
   {
     developer: "nova_studio",
@@ -83,6 +97,7 @@ const APPS: SeedApp[] = [
     category: "Productivity",
     version: "1.6.0",
     file: "focus-timer-1.6.0.zip",
+    logo: "watermarked_img_1225550223689866631.jpg",
     downloads: 5120,
     daysAgo: 300,
   },
@@ -95,6 +110,7 @@ const APPS: SeedApp[] = [
     category: "Productivity",
     version: "1.2.4",
     file: "habit-garden-1.2.4.apk",
+    logo: "watermarked_img_2766033749643563745.jpg",
     downloads: 2780,
     daysAgo: 45,
   },
@@ -107,6 +123,7 @@ const APPS: SeedApp[] = [
     category: "Games",
     version: "0.9.3",
     file: "pixel-quest-0.9.3.zip",
+    logo: "watermarked_img_3919355140928463915.jpg",
     downloads: 12650,
     daysAgo: 30,
   },
@@ -119,6 +136,7 @@ const APPS: SeedApp[] = [
     category: "Design",
     version: "3.1.0",
     file: "swatchbook-3.1.0.dmg",
+    logo: "watermarked_img_11242434371289521935.jpg",
     downloads: 4300,
     daysAgo: 160,
   },
@@ -131,6 +149,7 @@ const APPS: SeedApp[] = [
     category: "Photo & Video",
     version: "2.0.0",
     file: "clip-cutter-2.0.0.msi",
+    logo: "watermarked_img_1593332320268278436.jpg",
     downloads: 6900,
     daysAgo: 75,
   },
@@ -143,6 +162,7 @@ const APPS: SeedApp[] = [
     category: "Social",
     version: "1.0.5",
     file: "campfire-chat-1.0.5.apk",
+    logo: "watermarked_img_17858060790370327275.jpg",
     downloads: 1580,
     daysAgo: 12,
   },
@@ -155,6 +175,7 @@ const APPS: SeedApp[] = [
     category: "Developer Tools",
     version: "1.8.2",
     file: "json-lens-1.8.2.AppImage",
+    logo: "watermarked_img_8078571378998972099.jpg",
     downloads: 7740,
     daysAgo: 95,
   },
@@ -167,6 +188,7 @@ const APPS: SeedApp[] = [
     category: "Developer Tools",
     version: "0.4.1",
     file: "git-glance-0.4.1.deb",
+    logo: "watermarked_img_880988298326628145.jpg",
     downloads: 3150,
     daysAgo: 20,
   },
@@ -179,6 +201,7 @@ const APPS: SeedApp[] = [
     category: "Utilities",
     version: "5.2.0",
     file: "disk-sweep-5.2.0.pkg",
+    logo: "watermarked_img_15591288482847069424.jpg",
     downloads: 15200,
     daysAgo: 400,
   },
@@ -191,6 +214,7 @@ const APPS: SeedApp[] = [
     category: "Utilities",
     version: "2.2.0",
     file: "clipboard-keeper-2.2.0.exe",
+    logo: "watermarked_img_3845663005626020762.jpg",
     downloads: 8830,
     daysAgo: 140,
   },
@@ -203,6 +227,7 @@ const APPS: SeedApp[] = [
     category: "Education",
     version: "1.3.0",
     file: "flashcard-forge-1.3.0.zip",
+    logo: "watermarked_img_16289558698454190040.jpg",
     downloads: 4410,
     daysAgo: 60,
   },
@@ -215,6 +240,7 @@ const APPS: SeedApp[] = [
     category: "Education",
     version: "3.0.1",
     file: "star-atlas-3.0.1.apk",
+    logo: "watermarked_img_7909882403192353640.jpg",
     downloads: 2240,
     daysAgo: 250,
   },
@@ -227,6 +253,7 @@ const APPS: SeedApp[] = [
     category: "Other",
     version: "1.1.0",
     file: "recipe-box-1.1.0.dmg",
+    logo: "watermarked_img_13523637390502288917.jpg",
     downloads: 990,
     daysAgo: 5,
   },
@@ -267,18 +294,39 @@ export interface SeedSummary {
   users: number;
   apps: number;
   reviews: number;
+  /** Apps whose logo was uploaded, so their icon_url is set. */
+  icons: number;
+}
+
+/**
+ * Puts one logo into the public icons bucket at `key`, replacing any object already there, and
+ * resolves to its public URL. The CLI uploads to GCS; tests pass a fake.
+ */
+export type IconUploader = (logo: {
+  file: string;
+  key: string;
+  contentType: IconContentType;
+}) => Promise<string>;
+
+export interface SeedOptions {
+  /** Without one, nothing is uploaded and every app's icon_url stays NULL. */
+  uploadIcon?: IconUploader;
 }
 
 /** Inserts the dev fixture in one transaction. Runs only on an empty database, never in production. */
-export async function seed(): Promise<SeedSummary> {
+export async function seed({ uploadIcon }: SeedOptions = {}): Promise<SeedSummary> {
   if (env.NODE_ENV === "production") {
     throw new Error(
       "Refusing to seed: NODE_ENV is production. The seed is dev and test data only.",
     );
   }
 
-  // Hash before BEGIN so the transaction isn't held open across the bcrypt rounds.
-  const hashes = await Promise.all(USERS.map(() => bcrypt.hash(SEED_PASSWORD, 12)));
+  // Hash and upload before BEGIN so the transaction isn't held open across the bcrypt rounds or
+  // the uploads. A failed upload rejects before anything is inserted.
+  const [hashes, iconUrls] = await Promise.all([
+    Promise.all(USERS.map(() => bcrypt.hash(SEED_PASSWORD, 12))),
+    uploadLogos(uploadIcon),
+  ]);
 
   return withTransaction(async (client) => {
     const { rows } = await client.query<{ taken: boolean }>(
@@ -303,9 +351,9 @@ export async function seed(): Promise<SeedSummary> {
       const id = await insertReturningId(
         client,
         `INSERT INTO apps (developer_id, title, tagline, description, category, version, file_url,
-                           download_count, created_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-                 NOW() - make_interval(days => $9), NOW() - make_interval(days => $9))
+                           icon_url, download_count, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+                 NOW() - make_interval(days => $10), NOW() - make_interval(days => $10))
          RETURNING id`,
         [
           lookup(userIds, app.developer),
@@ -315,6 +363,7 @@ export async function seed(): Promise<SeedSummary> {
           app.category,
           app.version,
           `gs://${env.GCS_BINARY_BUCKET}/seed/${app.file}`, // placeholder: no object exists
+          iconUrls.get(app.title) ?? null,
           app.downloads,
           app.daysAgo,
         ],
@@ -329,8 +378,44 @@ export async function seed(): Promise<SeedSummary> {
       );
     }
 
-    return { users: USERS.length, apps: APPS.length, reviews: REVIEWS.length };
+    return {
+      users: USERS.length,
+      apps: APPS.length,
+      reviews: REVIEWS.length,
+      icons: iconUrls.size,
+    };
   });
+}
+
+/**
+ * Uploads each app's logo to `seed/{title-slug}{ext}` and maps the title to its public URL. Every
+ * app gets its own key because deleting an app, or replacing its icon, deletes the old object.
+ */
+async function uploadLogos(uploadIcon: IconUploader | undefined): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  if (!uploadIcon) return urls;
+  await Promise.all(
+    APPS.map(async ({ title, logo }) => {
+      if (logo === undefined) return;
+      const ext = extname(logo).toLowerCase();
+      const contentType = ICON_CONTENT_TYPES.find((type) => ICON_EXTENSIONS[type].includes(ext));
+      if (!contentType) throw new Error(`Seed logo "${logo}" isn't a PNG, WebP or JPEG.`);
+      const key = `seed/${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}${ext}`;
+      urls.set(title, await uploadIcon({ file: join(LOGO_DIR, logo), key, contentType }));
+    }),
+  );
+  return urls;
+}
+
+/** Uploads with Application Default Credentials. Unlike signed URLs, that needs no service account. */
+function gcsIconUploader(): IconUploader {
+  const config = { binaryBucket: env.GCS_BINARY_BUCKET, iconBucket: env.GCS_ICON_BUCKET };
+  const icons = new Storage().bucket(config.iconBucket);
+  const storage = createGcsStorage(config);
+  return async ({ file, key, contentType }) => {
+    await icons.upload(file, { destination: key, contentType, resumable: false });
+    return storage.publicUrl(key);
+  };
 }
 
 async function insertReturningId(
@@ -351,9 +436,12 @@ function lookup(ids: Map<string, number>, key: string): number {
 
 async function main(): Promise<void> {
   try {
-    const summary = await seed();
+    const hasLogos = existsSync(LOGO_DIR);
+    if (!hasLogos) console.warn(`No logos at ${LOGO_DIR}, so every app gets a letter icon.`);
+    const summary = await seed({ uploadIcon: hasLogos ? gcsIconUploader() : undefined });
     console.log(
-      `Seeded ${summary.users} users, ${summary.apps} apps and ${summary.reviews} reviews.`,
+      `Seeded ${summary.users} users, ${summary.apps} apps (${summary.icons} with logos in ` +
+        `gs://${env.GCS_ICON_BUCKET}/seed/) and ${summary.reviews} reviews.`,
     );
     console.log(`Dev sign-in (every account's password is "${SEED_PASSWORD}"):`);
     for (const user of USERS) console.log(`  ${user.role.padEnd(9)}  ${user.email}`);
