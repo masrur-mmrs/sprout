@@ -133,11 +133,3 @@ The frontend needs one server-side variable, `BACKEND_URL`, listed in `frontend/
 
 - **Backend:** `backend/deploy.sh` builds the image with Cloud Build, runs the migration job, and then rolls out the Cloud Run service. Migrations always run before the new code serves traffic.
 - **Frontend:** a Vercel project with `frontend/` as its root directory and `BACKEND_URL` set to the Cloud Run URL. Requests to `/api/*` are rewritten to the backend, so the session cookie stays on the Vercel domain.
-
-## Documentation
-
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): how the system is put together, with request flows for sign-in, password reset, uploads and downloads.
-- [`docs/DATABASE.md`](docs/DATABASE.md): the schema, indexes, migrations, and how the application reads and writes data.
-- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md): the phased build plan, including the design decisions (G1–G10) that override parts of the blueprint.
-- [`sprout_project_blueprint.md`](sprout_project_blueprint.md): the original requirements.
-- [`docs/MOTION_SPEC.md`](docs/MOTION_SPEC.md) and [`docs/MOTION_SPEC_NAV.md`](docs/MOTION_SPEC_NAV.md): motion specifications for the interface.
